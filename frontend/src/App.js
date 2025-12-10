@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
-import socket from "./socket";
-import ChatApp from "./socket"; // or correct path if renamed
+import ChatApp from "./socket";
+import socket from "./socketConnection";
 
 function App() {
   useEffect(() => {

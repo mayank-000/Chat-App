@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import { io } from "socket.io-client";
-
-// socket connection
-const socket = io(process.env.BACKEND_SOCKET_URL || "http://localhost:7070");
+import socket from "./socketConnection";
 
 function ChatApp() {
   const [message, setMessage] = useState("");
@@ -21,7 +18,7 @@ function ChatApp() {
   }, []);
 
   const sendMessage = () => {
-    socket.emit("send_message", { message });
+    socket.emit("message", { message });
     setMessage("");
   };
 
@@ -30,7 +27,7 @@ function ChatApp() {
       <div>
         {chat.map((c, index) => (
           <p key={index}>
-            {c.from}: {c.message}
+            {c.username || c.from}: {c.message}
           </p>
         ))}
       </div>
