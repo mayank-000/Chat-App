@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
@@ -9,9 +12,15 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 7070;
 
+import connectDB from './config/db.js';
+connectDB();
+
 app.get('/', (req, res) => {
     res.send("API is running...");
 })
+
+import authRoutes from './routes/authroutes.js';
+app.use('/api/auth', authRoutes);
 
 app.use((req, res) => {
     res.status(404).json({
