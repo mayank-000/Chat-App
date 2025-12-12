@@ -1,15 +1,12 @@
 import express from 'express';
+import { createUserAccount, loginUser, getUserProfile } from '../controllers/auth.controllers.js';
+import { verifyToken } from '../middlewares/auth.middleware.js';
 
-import authController from '../controllers/auth.controller.js';
-
-import authMiddleware from '../middlewares/auth.middleware.js';
-
-const router  = express.Router();
+const router = express.Router();
 
 // Authentication Routes
-router.post("/signup", authController.createUserAccount)
-router.post("/signin", authController.loginUser)
-
-router.get("/profile", authMiddleware.verifyToken, authController.getUserProfile)
+router.post("/signup", createUserAccount);
+router.post("/signin", loginUser);
+router.get("/profile", verifyToken, getUserProfile);
 
 export default router;
