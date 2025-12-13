@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
+import cookieParser from 'cookie-parser';
 
 import express from 'express';
 import cors from 'cors';
@@ -7,7 +8,11 @@ import http from 'http';
 
 const app = express();
 
-app.use(cors());
+app.use(cookieParser());
+app.use(cors({
+    origin: "http://localhost:3000",
+    credentials: true
+}));
 app.use(express.json());
 
 const PORT = process.env.PORT || 7070;

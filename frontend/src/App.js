@@ -8,16 +8,7 @@ import ChatApp from "./socket";
 import socket from "./socketConnection";
 
 function App() {
-  useEffect(() => {
-    socket.on("connect", () => {
-      console.log("Connected to server with ID:", socket.id);
-    });
-
-    return () => {
-      socket.off("connect");
-    };
-  }, []);
-
+  
   return (
     <AuthProvider>
       <Router>

@@ -13,7 +13,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [loading, isLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     // Check if user is already logged in on component mount
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
             setUser(null);
         } finally {
-            isLoading(false);
+            setLoading(false);
         }
     };
 

@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
 
-const socket = io(process.env.BACKEND_SOCKET_URL || "http://localhost:7070");
+const socket = io("http://localhost:6060");
 
 export default socket;
