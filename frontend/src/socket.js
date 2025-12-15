@@ -4,7 +4,7 @@ import socket from "./socketConnection";
 function ChatApp() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState([]);
-
+  
   useEffect(() => {
     socket.on("receive_message", (data) => {
       setChat((prevChat) => [...prevChat, data]);
