@@ -6,12 +6,15 @@ import catchAsync from '../utils/catchAsync.js';
 // Get all conversations for a user
 export const getUserConversations = catchAsync(async (req, res) => {
     const userId = req.userId;
+    console.log("Fetching conversations for user:", userId);
 
     const conversations = await Conversation.find({
         participants: userId
     })
     .populate('participants', 'username email')
     .sort({ lastMessageAt: -1 });
+
+    console.log('Conversations found:', conversations.length);
 
     res.status(200).json({
         success: true,
@@ -23,6 +26,8 @@ export const getUserConversations = catchAsync(async (req, res) => {
 export const createOrGetConversation = catchAsync(async (req, res) => {
     const { participantId } = req.body;
     const userId = req.userId;
+
+    console.log("Creating or getting conversation between users:", userId, participantId);
 
     if(!participantId) {
         return res.status(400).json({ success: false, message: 'Participant ID is required' });
@@ -38,11 +43,13 @@ export const createOrGetConversation = catchAsync(async (req, res) => {
     if(!conversation) {
         // Create new conversation
         conversation = new Conversation({
-            isGroupChat: false,
-            participants: [userId, participantId]
+            participants: [userId, participantId],
+            isGroupChat: false
         });
         await conversation.save();
         await conversation.populate('participants', 'username email');
+    } else {
+        console.log('Existing conversation found with ID:', conversation._id);
     }
 
     res.status(200).json({
@@ -54,7 +61,7 @@ export const createOrGetConversation = catchAsync(async (req, res) => {
 // Adding Pagination to get messages in a conversation
 export const getConversationMessages = catchAsync(async (req, res) => {
     const { conversationId } = req.params;
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 50 } = req.query;
 
     const messages = await Message.find({
         conversationId
@@ -74,25 +81,51 @@ export const getConversationMessages = catchAsync(async (req, res) => {
     });
 });
 
+// Get all Users
+export const getAllUsers = catchAsync(async (req, res) => {
+    const userId = req.userId;
+    
+    console.log("Fetching all users excluding current user:", userId);
+
+    const allUsers = await User.find({
+        _id: { $ne: userId }
+    })
+    .select('username email')
+    .sort({ lastMessageAt: 1 });
+
+    console.log('Users found:', allUsers.length);
+
+    res.status(200).json({
+        success: true,
+        users: allUsers 
+    });
+})
+
 // Search Users to start a conversation
 export const searchUsers = catchAsync(async (req, res) => {
     const { query } = req.query;
     const userId = req.userId;
 
+    console.log("Searching users with query:", query);
+    console.log("Excluding current user ID:", userId);
+
     if(!query) {
         return res.status(400).json({ success: false, message: 'Search query is required' });
     }
-    const user = await User.find({
-        _id: { $ne: userId },
+    const foundUser = await User.find({
+        _id: { $ne: userId }, // Exclude current user
         $or: [
             { username: { $regex: query, $options: 'i' } },
             { email: { $regex: query, $options: 'i' } }
         ]
     })
-    .select('username email');
+    .select('username email')
+    .limit(10);
+
+    console.log('Users found:', foundUser._id);
     
     res.status(200).json({
         success: true,
-        users: user 
+        users: foundUser
     });
 });

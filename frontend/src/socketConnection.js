@@ -5,7 +5,7 @@ const BACKEND_URL = process.env.REACT_APP_API_URL
     : 'http://localhost:6060';
 
 const socket = io(BACKEND_URL, {
-    autoConnect: true, // Changed from false to true
+    autoConnect: false, // Changed from false to true
     withCredentials: true,
     transports: ['websocket', 'polling']
 });

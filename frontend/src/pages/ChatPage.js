@@ -1,4 +1,3 @@
-// frontend/src/pages/ChatPage.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -18,22 +17,24 @@ const ChatPage = () => {
     } = useSocket();
 
     const [conversations, setConversations] = useState([]);
+    const [allUsers, setAllUsers] = useState([]); 
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [messages, setMessages] = useState([]);
     const [messageInput, setMessageInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [typingUsers, setTypingUsers] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [showSearch, setShowSearch] = useState(false);
+    const [filteredUsers, setFilteredUsers] = useState([]); 
     const [loading, setLoading] = useState(false);
 
     const messagesEndRef = useRef(null);
     const typingTimeoutRef = useRef(null);
 
-    // Load conversations on mount
+    // Load conversations and all users on mount
     useEffect(() => {
         loadConversations();
+        loadAllUsers();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Setup socket listeners
@@ -78,6 +79,7 @@ const ChatPage = () => {
                 leaveConversation(selectedConversation._id);
             };
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedConversation]);
 
     const loadConversations = async () => {
@@ -86,6 +88,16 @@ const ChatPage = () => {
             setConversations(response.conversations);
         } catch (error) {
             console.error('Failed to load conversations:', error);
+        }
+    };
+
+    const loadAllUsers = async () => {
+        try {
+            const response = await chatService.getAllUsers();
+            setAllUsers(response.users);
+            setFilteredUsers(response.users);  // Initially show all users
+        } catch (error) {
+            console.error('Failed to load users:', error);
         }
     };
 
@@ -133,21 +145,20 @@ const ChatPage = () => {
         }, 1000);
     };
 
-    const handleSearch = async (e) => {
+    const handleSearch = (e) => {
         const query = e.target.value;
         setSearchQuery(query);
 
         if (query.trim().length > 0) {
-            try {
-                const response = await chatService.searchUsers(query);
-                setSearchResults(response.users);
-                setShowSearch(true);
-            } catch (error) {
-                console.error('Search failed:', error);
-            }
+            // Filter users locally
+            const filtered = allUsers.filter(u => 
+                u.username.toLowerCase().includes(query.toLowerCase()) ||
+                u.email.toLowerCase().includes(query.toLowerCase())
+            );
+            setFilteredUsers(filtered);
         } else {
-            setSearchResults([]);
-            setShowSearch(false);
+            // Show all users when search is empty
+            setFilteredUsers(allUsers);
         }
     };
 
@@ -163,7 +174,6 @@ const ChatPage = () => {
             }
             
             setSelectedConversation(newConversation);
-            setShowSearch(false);
             setSearchQuery('');
         } catch (error) {
             console.error('Failed to create conversation:', error);
@@ -218,47 +228,58 @@ const ChatPage = () => {
                         onChange={handleSearch}
                         className="search-input"
                     />
-                    {showSearch && searchResults.length > 0 && (
-                        <div className="search-results">
-                            {searchResults.map(searchUser => (
-                                <div
-                                    key={searchUser._id}
-                                    className="search-result-item"
-                                    onClick={() => handleStartChat(searchUser._id)}
-                                >
-                                    <div className="user-avatar small">
-                                        {searchUser.username.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="search-user-info">
-                                        <p className="search-username">{searchUser.username}</p>
-                                        <p className="search-email">{searchUser.email}</p>
-                                    </div>
+                </div>
+
+                {/* All Users List */}
+                <div className="users-list">
+                    <h4 className="section-title">All Users</h4>
+                    {filteredUsers.length > 0 ? (
+                        filteredUsers.map(otherUser => (
+                            <div
+                                key={otherUser._id}
+                                className="user-item"
+                                onClick={() => handleStartChat(otherUser._id)}
+                            >
+                                <div className="user-avatar small">
+                                    {otherUser.username.charAt(0).toUpperCase()}
                                 </div>
-                            ))}
-                        </div>
+                                <div className="user-item-info">
+                                    <h4>{otherUser.username}</h4>
+                                    <p className="user-email">{otherUser.email}</p>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="no-users">No users found</div>
                     )}
                 </div>
 
-                <div className="conversations-list">
-                    {conversations.map(conversation => {
-                        const otherUser = getOtherParticipant(conversation);
+                {/* Conversations List */}
+                {conversations.length > 0 && (
+                    <>
+                        <h4 className="section-title">Recent Chats</h4>
+                        <div className="conversations-list">
+                            {conversations.map(conversation => {
+                                const otherUser = getOtherParticipant(conversation);
 
-                        return (
-                            <div
-                                key={conversation._id}
-                                className={`conversation-item ${selectedConversation?._id === conversation._id ? 'active' : ''}`}
-                                onClick={() => setSelectedConversation(conversation)}
-                            >
-                                <div className="user-avatar">
-                                    {otherUser?.username.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="conversation-info">
-                                    <h4>{otherUser?.username}</h4>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                                return (
+                                    <div
+                                        key={conversation._id}
+                                        className={`conversation-item ${selectedConversation?._id === conversation._id ? 'active' : ''}`}
+                                        onClick={() => setSelectedConversation(conversation)}
+                                    >
+                                        <div className="user-avatar">
+                                            {otherUser?.username.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="conversation-info">
+                                            <h4>{otherUser?.username}</h4>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Chat Area */}
@@ -323,7 +344,7 @@ const ChatPage = () => {
                 ) : (
                     <div className="no-chat-selected">
                         <h2>Welcome to Chat App</h2>
-                        <p>Select a conversation or search for users to start chatting</p>
+                        <p>Click on any user to start chatting</p>
                     </div>
                 )}
             </div>

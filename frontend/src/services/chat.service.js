@@ -31,6 +31,16 @@ const chatService = {
         }
     },
 
+    // Get all Users
+    getAllUsers: async () => {
+        try {
+            const response = await api.get('/users');
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error;
+        }
+    },
+
     // Search users to start a new conversation
     searchUsers: async (query) => {
         try {

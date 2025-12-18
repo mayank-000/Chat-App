@@ -10,7 +10,7 @@ export const setupSocketHandlers = (io) => {
         socket.on('user:join', async (userId) => {
             try {
                 socket.userId = userId;
-                socket.join('user:'+userId);
+                socket.join(`user:${userId}`);
 
                 // Update user status to online
                 await User.findByIdAndUpdate(userId, {
@@ -76,7 +76,7 @@ export const setupSocketHandlers = (io) => {
             socket.to(`conversation:${conversationId}`).emit('typing:display', {
                 userId: socket.userId,
                 username,
-                conversationId,
+                conversationId
             });
         }); 
         socket.on('typing:stop', (data) => {
@@ -117,10 +117,18 @@ export const setupSocketHandlers = (io) => {
             try {
                 if(socket.userId) {
                     await User.findByIdAndUpdate(socket.userId, {
+                        isOnline: false,
+                        lastSeen: new Date(),
                         socketId: null,
                     });
+                    // Notify friends that user is offline
+                    socket.broadcast.emit('user:offline', {
+                        userId: socket.userId,
+                        isOnline: false,
+                        lastSeen: new Date()
+                    })
                 }
-                console.log('A user disconnected:', socket.id);
+                console.log(`A user disconnected: ${socket.id}`);
             } catch (err) {
                 console.error('Error during disconnect:', err);
             }

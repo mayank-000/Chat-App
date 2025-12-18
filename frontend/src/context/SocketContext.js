@@ -24,8 +24,9 @@ export const SocketProvider = ({ children }) => {
 
             socket.on('connect', () => {
                 setIsConnected(true);
-                console.log('Socket connected');
+                console.log('Socket connected', socket.id);
                 socket.emit('user:join', user.id);
+                console.log('Emitted user:join for user ID:', user.id);
             });
 
             socket.on('disconnect', () => {
@@ -48,6 +49,7 @@ export const SocketProvider = ({ children }) => {
             });
 
             return () => {
+                console.log('Cleaning up socket listeners and disconnecting');
                 socket.off('connect');
                 socket.off('disconnect');
                 socket.off('user:online');

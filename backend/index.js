@@ -24,11 +24,11 @@ app.get('/', (req, res) => {
     res.send("API is running...");
 })
 
-import router from './routes/auth.routes.js';
-import conversationRoutes from './routes/conversation.routes.js';
+import authRouter from './routes/auth.routes.js';
+import conversationRouter from './routes/conversation.routes.js';
 
-app.use('/api/auth', router);
-app.use('/api/conversations', conversationRoutes);
+app.use('/api/auth', authRouter);
+app.use('/api', conversationRouter);
 
 app.use((req, res) => {
     res.status(404).json({
