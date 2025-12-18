@@ -33,6 +33,12 @@ export const createOrGetConversation = catchAsync(async (req, res) => {
         return res.status(400).json({ success: false, message: 'Participant ID is required' });
     }
 
+    // Chaeking for participant existence
+    const participant = await User.findById(participantId);
+    if(!participant) {
+        return res.status(404).json({ success: false, message: 'Participant not found' });
+    }
+
     // Check if conversation already exists
     let conversation = await Conversation.findOne({
         isGroupChat: false,

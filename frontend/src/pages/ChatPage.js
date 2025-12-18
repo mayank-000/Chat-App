@@ -42,6 +42,7 @@ const ChatPage = () => {
         if (!socket) return;
 
         socket.on('message:receive', (message) => {
+            console.log('Message received:', message);
             setMessages(prev => [...prev, message]);
         });
 
@@ -72,10 +73,12 @@ const ChatPage = () => {
     // Join/leave conversation rooms
     useEffect(() => {
         if (selectedConversation) {
+            console.log('Joining conversation:', selectedConversation._id);
             joinConversation(selectedConversation._id);
             loadMessages(selectedConversation._id);
 
             return () => {
+                console.log('Leaving conversation:', selectedConversation._id);
                 leaveConversation(selectedConversation._id);
             };
         }
@@ -95,7 +98,7 @@ const ChatPage = () => {
         try {
             const response = await chatService.getAllUsers();
             setAllUsers(response.users);
-            setFilteredUsers(response.users);  // Initially show all users
+            setFilteredUsers(response.users);
         } catch (error) {
             console.error('Failed to load users:', error);
         }
@@ -108,6 +111,7 @@ const ChatPage = () => {
             setMessages(response.messages);
         } catch (error) {
             console.error('Failed to load messages:', error);
+            setMessages([]);
         } finally {
             setLoading(false);
         }
@@ -123,6 +127,7 @@ const ChatPage = () => {
             messageType: 'text'
         };
 
+        console.log('Sending message:', messageData);
         sendMessage(messageData);
         setMessageInput('');
         stopTyping(selectedConversation._id);
@@ -150,37 +155,45 @@ const ChatPage = () => {
         setSearchQuery(query);
 
         if (query.trim().length > 0) {
-            // Filter users locally
             const filtered = allUsers.filter(u => 
                 u.username.toLowerCase().includes(query.toLowerCase()) ||
                 u.email.toLowerCase().includes(query.toLowerCase())
             );
             setFilteredUsers(filtered);
         } else {
-            // Show all users when search is empty
             setFilteredUsers(allUsers);
         }
     };
 
     const handleStartChat = async (participantId) => {
         try {
+            console.log('Starting chat with user:', participantId);
             const response = await chatService.createConversation(participantId);
             const newConversation = response.conversation;
             
-            // Add to conversations if not already there
-            const exists = conversations.find(c => c._id === newConversation._id);
-            if (!exists) {
-                setConversations(prev => [newConversation, ...prev]);
-            }
+            console.log('Conversation created/retrieved:', newConversation);
             
+            // Add to conversations list if not already there
+            setConversations(prev => {
+                const exists = prev.find(c => c._id === newConversation._id);
+                if (exists) {
+                    return prev;
+                }
+                return [newConversation, ...prev];
+            });
+            
+            // Set as selected conversation
             setSelectedConversation(newConversation);
             setSearchQuery('');
+            setFilteredUsers(allUsers); // Reset filter
         } catch (error) {
             console.error('Failed to create conversation:', error);
+            alert('Failed to start conversation. Please try again.');
         }
     };
 
     const getOtherParticipant = (conversation) => {
+        if (!conversation || !conversation.participants) return null;
         return conversation.participants.find(p => p._id !== user.id);
     };
 
@@ -261,6 +274,7 @@ const ChatPage = () => {
                         <div className="conversations-list">
                             {conversations.map(conversation => {
                                 const otherUser = getOtherParticipant(conversation);
+                                if (!otherUser) return null;
 
                                 return (
                                     <div
@@ -269,10 +283,10 @@ const ChatPage = () => {
                                         onClick={() => setSelectedConversation(conversation)}
                                     >
                                         <div className="user-avatar">
-                                            {otherUser?.username.charAt(0).toUpperCase()}
+                                            {otherUser.username.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="conversation-info">
-                                            <h4>{otherUser?.username}</h4>
+                                            <h4>{otherUser.username}</h4>
                                         </div>
                                     </div>
                                 );
@@ -302,22 +316,35 @@ const ChatPage = () => {
                                 <div className="loading">Loading messages...</div>
                             ) : (
                                 <>
-                                    {messages.map((message) => (
-                                        <div
-                                            key={message._id}
-                                            className={`message ${message.sender._id === user.id ? 'sent' : 'received'}`}
-                                        >
-                                            <div className="message-content">
-                                                {message.sender._id !== user.id && (
-                                                    <span className="sender-name">{message.sender.username}</span>
-                                                )}
-                                                <p>{message.content}</p>
-                                                <span className="message-time">
-                                                    {formatTime(message.createdAt)}
-                                                </span>
-                                            </div>
+                                    {messages.length === 0 ? (
+                                        <div className="no-messages" style={{
+                                            display: 'flex',
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            height: '100%',
+                                            color: '#666',
+                                            fontSize: '14px'
+                                        }}>
+                                            No messages yet. Start the conversation!
                                         </div>
-                                    ))}
+                                    ) : (
+                                        messages.map((message) => (
+                                            <div
+                                                key={message._id}
+                                                className={`message ${message.sender._id === user.id ? 'sent' : 'received'}`}
+                                            >
+                                                <div className="message-content">
+                                                    {message.sender._id !== user.id && (
+                                                        <span className="sender-name">{message.sender.username}</span>
+                                                    )}
+                                                    <p>{message.content}</p>
+                                                    <span className="message-time">
+                                                        {formatTime(message.createdAt)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                     {typingUsers[selectedConversation._id] && (
                                         <div className="typing-indicator">
                                             {typingUsers[selectedConversation._id]} is typing...

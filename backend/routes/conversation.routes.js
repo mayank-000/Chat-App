@@ -5,6 +5,7 @@ import {
     createOrGetConversation,
     getConversationMessages,
     searchUsers,
+    getAllUsers
 } from '../controllers/conversation.controller.js';
 
 const router = express.Router();
@@ -15,6 +16,7 @@ router.use(verifyToken);
 router.get('/conversations', getUserConversations);
 router.post('/conversations', createOrGetConversation);
 router.get('/conversations/:conversationId/messages', getConversationMessages);
+router.get('/users', getAllUsers);
 router.get('/users/search', searchUsers);
 
 export default router;
