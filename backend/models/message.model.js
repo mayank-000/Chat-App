@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { Conversation } from "./conversation.model";
 
 const messageSchema = new mongoose.Schema({
     conversationId: {
