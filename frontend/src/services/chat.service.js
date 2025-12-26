@@ -1,4 +1,3 @@
-import { deleteMessage } from '../../../backend/controllers/conversation.controller';
 import api from './api';
 
 const chatService = {

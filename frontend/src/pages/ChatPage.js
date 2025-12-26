@@ -33,7 +33,7 @@ const ChatPage = () => {
 
   // Load conversations and all users on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem("theme") || "light";
     if (savedTheme) {
       setColor(savedTheme);
     }
@@ -243,7 +243,7 @@ const ChatPage = () => {
     } catch (error) {
       console.error("Failed to delete message:", error);
     }
-  }
+  };
 
   return (
     <div
@@ -393,9 +393,20 @@ const ChatPage = () => {
                             </span>
                           )}
                           <p>{message.content}</p>
-                          <span className="message-time">
-                            {formatTime(message.createdAt)}
-                          </span>
+                          <div className="message-actions">
+                            <span className="message-time">
+                              {formatTime(message.createdAt)}
+                            </span>
+                            {message.sender._id === user.id && (
+                              <button
+                                onClick={() => deleteMessage(message._id)}
+                                className="delete-message-btn"
+                                title="Delete message"
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))

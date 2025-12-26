@@ -364,6 +364,36 @@
     margin: 5px 0;
 }
 
+.message-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.delete-message-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    opacity: 0.6;
+    padding: 2px 4px;
+    margin-left: 8px;
+    transition: opacity 0.2s;
+}
+
+.delete-message-btn:hover {
+    opacity: 1;
+}
+
+.dark-theme .delete-message-btn {
+    opacity: 0.5;
+}
+
+.dark-theme .delete-message-btn:hover {
+    opacity: 0.9;
+}
+
 /* ===== MESSAGE INPUT ===== */
 .message-input-container {
     padding: 15px 20px;

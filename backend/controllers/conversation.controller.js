@@ -145,7 +145,12 @@ export const deleteMessage = catchAsync(async (req, res) => {
         return res.status(400).json({ success: false, message: 'Message ID is required' });
     }
 
-    if(messageId.sender._id !== userId) {
+    const message = await Message.findById(messageId);
+    if(!message) {
+        return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+
+    if(message.sender.toString() !== userId) {
         return res.status(403).json({ success: false, message: 'Only the sender can delete this message' });
     }
 
