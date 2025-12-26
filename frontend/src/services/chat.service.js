@@ -1,3 +1,4 @@
+import { deleteMessage } from '../../../backend/controllers/conversation.controller';
 import api from './api';
 
 const chatService = {
@@ -48,6 +49,16 @@ const chatService = {
             return response.data;
         } catch (err) {
             throw err.response?.data || err;
+        }
+    },
+
+    // Delete a specific message
+    deleteMessage: async (messageId) => {
+        try {
+            const response = await api.delete(`/messages/${messageId}`);
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error;
         }
     }
 };

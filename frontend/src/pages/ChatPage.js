@@ -232,6 +232,19 @@ const ChatPage = () => {
     localStorage.setItem("theme", Theme);
   };
 
+  const deleteMessage = async (messageId) => {
+    try {
+      const response = await chatService.deleteMessage(messageId);
+      if (response.success) {
+        setMessages((prevMessages) =>
+          prevMessages.filter((msg) => msg._id !== messageId)
+        );
+      }
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+    }
+  }
+
   return (
     <div
       className={`chat-page ${color === "dark" ? "dark-theme" : "light-theme"}`}

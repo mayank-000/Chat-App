@@ -5,7 +5,8 @@ import {
     createOrGetConversation,
     getConversationMessages,
     searchUsers,
-    getAllUsers
+    getAllUsers,
+    deleteMessage
 } from '../controllers/conversation.controller.js';
 
 const router = express.Router();
@@ -18,5 +19,6 @@ router.post('/conversations', createOrGetConversation);
 router.get('/conversations/:conversationId/messages', getConversationMessages);
 router.get('/users', getAllUsers);
 router.get('/users/search', searchUsers);
+router.delete('/messages/:messageId', deleteMessage);
 
 export default router;

@@ -135,3 +135,25 @@ export const searchUsers = catchAsync(async (req, res) => {
         users: foundUser
     });
 });
+
+// Delete a Message
+export const deleteMessage = catchAsync(async (req, res) => {
+    const { messageId } = req.params;
+    const userId = req.userId;
+
+    if(!messageId) {
+        return res.status(400).json({ success: false, message: 'Message ID is required' });
+    }
+
+    if(messageId.sender._id !== userId) {
+        return res.status(403).json({ success: false, message: 'Only the sender can delete this message' });
+    }
+
+    console.log("Deleting message with ID:", messageId);
+
+    await Message.findByIdAndDelete(messageId);
+    res.status(200).json({
+        success: true,
+        message: 'Message deleted successfully'
+    });
+});
