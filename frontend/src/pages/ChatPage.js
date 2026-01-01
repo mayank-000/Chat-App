@@ -393,10 +393,12 @@ const ChatPage = () => {
                             </span>
                           )}
                           <p>{message.content}</p>
-                          <div className="message-actions">
-                            <span className="message-time">
-                              {formatTime(message.createdAt)}
-                            </span>
+                          <div className="message-box">
+                            <div className="message-actions">
+                              <span className="message-time">
+                                {formatTime(message.createdAt)}
+                              </span>
+                            </div>
                             {message.sender._id === user.id && (
                               <button
                                 onClick={() => deleteMessage(message._id)}

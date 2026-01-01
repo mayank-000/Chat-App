@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import encryptionService, { exportPublicKey, generateKeyPair } from '../services/encryption.service';
 import './Auth.css';
 
 const Signup = () => {
@@ -44,9 +45,14 @@ const Signup = () => {
             return;
         }
 
+        const { publicKey, privateKey } = await generateKeyPair();
+
+        const publicKeyString = await exportPublicKey(publicKey);
+        const privateKeyString = await exportPrivateKey(privateKey);
+
         try {
             const { confirmPassword, ...signupData } = formData;
-            await signup(signupData);
+            const response = await signup(signupData);
             setSuccessMsg('Account created successfully! Redirecting to login...');
             setTimeout(() => {
                 navigate('/login');

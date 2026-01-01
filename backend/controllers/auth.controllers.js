@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // Create a new user account
 export const createUserAccount = catchAsync(async (req, res) => {
-    const { username, email, password } = req.body;
+    const { username, email, password, publicKey } = req.body;
 
     // Validate input
     if(!username || !email || !password) {
@@ -17,6 +17,9 @@ export const createUserAccount = catchAsync(async (req, res) => {
     }
     if(password.length < 6) {
         return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+    if(!publicKey) {
+        return res.status(400).json({ message: 'Public Key is required'});
     }
 
     // Check if user already exists
@@ -32,7 +35,8 @@ export const createUserAccount = catchAsync(async (req, res) => {
     const newUser = new User({
         email: email,
         password: hashedPassword,
-        username: username
+        username: username,
+        publicKey: publicKey
     })
 
     // Save user to database
@@ -78,7 +82,8 @@ export const loginUser = catchAsync(async (req, res) => {
             user: {
                 id: user._id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                publicKey: user.publicKey
             }
         })
 
@@ -90,7 +95,8 @@ export const getUserProfile = catchAsync(async (req, res) => {
     const user = {
         id: req.user._id,
         username: req.user.username,
-        email: req.user.email
+        email: req.user.email,
+        publicKey: req.user.publicKey
     };
     
     res.status(200).json({

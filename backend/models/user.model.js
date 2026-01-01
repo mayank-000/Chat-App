@@ -15,6 +15,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    publicKey: {
+        type: String,
+        default: none
+    },
     socketId: {
         type: String,
         default: null,

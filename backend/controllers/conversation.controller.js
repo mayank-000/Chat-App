@@ -11,7 +11,7 @@ export const getUserConversations = catchAsync(async (req, res) => {
     const conversations = await Conversation.find({
         participants: userId
     })
-    .populate('participants', 'username email')
+    .populate('participants', 'username email publicKey')
     .sort({ lastMessageAt: -1 });
 
     console.log('Conversations found:', conversations.length);
@@ -44,7 +44,7 @@ export const createOrGetConversation = catchAsync(async (req, res) => {
         isGroupChat: false,
         participants: { $all: [userId, participantId], $size: 2 }
     })
-    .populate('participants', 'username email');
+    .populate('participants', 'username email publicKey');
 
     if(!conversation) {
         // Create new conversation
