@@ -15,7 +15,7 @@ app.use(cors({
 }));
 app.use(express.json());
 
-const PORT = process.env.PORT || 7070;
+const PORT = process.env.PORT || 6060;
 
 import connectDB from './config/db.js';
 connectDB();
