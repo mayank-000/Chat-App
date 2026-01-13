@@ -1,6 +1,12 @@
 import { io } from "socket.io-client";
 
-const BACKEND_URL = process.env.REACT_APP_API_URL.replace('/api', '');
+const API_URL = process.env.REACT_APP_API_URL;
+
+if(!API_URL) {
+    console.error("React_APP_API_URL is missing);
+}
+
+const BACKEND_URL = API_URL.replace('/api', '');
     
 const socket = io(BACKEND_URL, {
     autoConnect: false, // Changed from false to true
