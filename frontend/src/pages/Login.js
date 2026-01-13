@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { hasPrivateKey, loadPrivateKey } from '../utils/indexdb';
 import './Auth.css';
 
 const Login = () => {
@@ -28,7 +29,24 @@ const Login = () => {
         setErrorMsg('');
 
         try {
-            await signin(formData);
+            const response = await signin(formData);
+
+            // Check if private key exists in IndexedDB
+            const keyExists = await hasPrivateKey(response.user.id);
+            
+            if (!keyExists) {
+                // Try with email (from signup)
+                const keyByEmail = await loadPrivateKey(response.user.email);
+                if (keyByEmail) {
+                    // Re-save with correct user ID
+                    const { savePrivateKey } = await import('../utils/indexdb');
+                    await savePrivateKey(response.user.id, keyByEmail);
+                } else {
+                    // Show warning
+                    alert('⚠️ Encryption keys not found. You won\'t be able to read encrypted messages from this device.');
+                }
+            }
+
             navigate('/'); // Redirect to home/chat page
         } catch (error) {
             setErrorMsg(error.message || 'Login failed. Please try again.');

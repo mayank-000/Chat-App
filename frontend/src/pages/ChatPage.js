@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import chatService from "../services/chat.service";
+import { encryptMessage, decryptMessage } from "../services/encryption.service";
 import "./ChatPage.css";
 
 const ChatPage = () => {
-  const { user, signout } = useAuth();
+  const { user, signout, userPrivateKey } = useAuth();
   const {
     isConnected,
     joinConversation,
@@ -26,6 +27,7 @@ const ChatPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [decryptedMessages, setDecryptedMessages] = useState({});
   const [color, setColor] = useState("light");
 
   const messagesEndRef = useRef(null);
@@ -42,13 +44,47 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const decryptAllMessages = async () => {
+      if (!userPrivateKey || messages.length === 0) return;
+
+      const decrypted = {};
+      for (const message of messages) {
+        if (message.sender._id !== user.id) {
+          try {
+            decrypted[message._id] = await decryptMessageContent(message);
+          } catch (err) {
+            console.error("Failed to decrypt message:", err);
+            decrypted[message._id] = "[Failed to decrypt]";
+          }
+        }
+      }
+      setDecryptedMessages(decrypted);
+    };
+
+    decryptAllMessages();
+  }, [messages, userPrivateKey]);
+
   // Setup socket listeners
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("message:receive", (message) => {
+    socket.on("message:receive", async (message) => {
       console.log("Message received:", message);
       setMessages((prev) => [...prev, message]);
+
+      // Decrypt if it's for you
+      if (message.sender._id !== user.id && userPrivateKey) {
+        try {
+          const decrypted = await decryptMessageContent(message);
+          setDecryptedMessages((prev) => ({
+            ...prev,
+            [message._id]: decrypted,
+          }));
+        } catch (err) {
+          console.error("Failed to decrypt incoming message:", err);
+        }
+      }
     });
 
     socket.on("typing:display", (data) => {
@@ -125,20 +161,65 @@ const ChatPage = () => {
     }
   };
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!messageInput.trim() || !selectedConversation) return;
 
-    const messageData = {
-      conversationId: selectedConversation._id,
-      content: messageInput.trim(),
-      messageType: "text",
-    };
+    try {
+      // Get recipient from conversation
+      const recipient = getOtherParticipant(selectedConversation);
 
-    console.log("Sending message:", messageData);
-    sendMessage(messageData);
-    setMessageInput("");
-    stopTyping(selectedConversation._id);
+      if (!recipient || !recipient.publicKey) {
+        alert("Cannot send encrypted message: Recipient has no encryption key");
+        return;
+      }
+
+      // Encrypt message with recipient's public key
+      const encryptedContent = await encryptMessage(
+        messageInput.trim(),
+        recipient.publicKey
+      );
+
+      const messageData = {
+        conversationId: selectedConversation._id,
+        content: encryptedContent,
+        messageType: "text",
+      };
+
+      console.log("Sending encrypted message:", messageData);
+      sendMessage(messageData);
+
+      // Store plaintext locally for display (your sent messages)
+      // You can also encrypt for yourself if you want
+
+      setMessageInput("");
+      stopTyping(selectedConversation._id);
+    } catch (error) {
+      console.error("Encryption failed:", error);
+      alert("Failed to encrypt message. Please try again.");
+    }
+  };
+
+  const decryptMessageContent = async (message) => {
+    try {
+      // If it's your own message, you can't decrypt it with recipient's key
+      // For now, just return the encrypted content
+      // (In production, you'd encrypt for yourself too)
+      if (message.sender._id === user.id) {
+        return "[Your encrypted message]";
+      }
+
+      // Decrypt with your private key
+      if (userPrivateKey) {
+        const decrypted = await decryptMessage(message.content, userPrivateKey);
+        return decrypted;
+      }
+
+      return "[Encrypted - Key not available]";
+    } catch (error) {
+      console.error("Decryption failed for message:", message._id, error);
+      return "[Failed to decrypt]";
+    }
   };
 
   const handleTyping = (e) => {
@@ -392,7 +473,12 @@ const ChatPage = () => {
                               {message.sender.username}
                             </span>
                           )}
-                          <p>{message.content}</p>
+                          <p>
+                            {message.sender._id === user.id
+                              ? "[Your encrypted message]" // Temporary, until we implement self-encryption
+                              : decryptedMessages[message._id] ||
+                                "Decrypting..."}
+                          </p>
                           <div className="message-box">
                             <div className="message-actions">
                               <span className="message-time">

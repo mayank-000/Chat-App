@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema({
     },
     publicKey: {
         type: String,
-        default: none
+        default: null,
     },
     socketId: {
         type: String,

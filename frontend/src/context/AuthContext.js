@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from '../services/auth.service';
+import { loadPrivateKey } from '../utils/indexdb';
+import { importPrivateKey } from '../services/encryption.service';
 
 const AuthContext = createContext(null);
 
@@ -15,6 +17,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [userPrivateKey, setUserPrivateKey] = useState(null);
 
     // Check if user is already logged in on component mount
     useEffect(() => {
@@ -25,8 +28,16 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await authService.getProfile();
             setUser(response.user);
+
+            // Load private key from IndexedDB
+            const privateKeyString = await loadPrivateKey(response.user.id);
+            if (privateKeyString) {
+                const privateKey = await importPrivateKey(privateKeyString);
+                setUserPrivateKey(privateKey);
+            }
         } catch (err) {
             setUser(null);
+            setUserPrivateKey(null);
         } finally {
             setLoading(false);
         }
@@ -48,6 +59,14 @@ export const AuthProvider = ({ children }) => {
             setError(null);
             const response = await authService.signin(Credentials);
             setUser(response.user);
+
+            // Load private key from IndexedDB
+            const privateKeyString = await loadPrivateKey(response.user.id);
+            if (privateKeyString) {
+                const privateKey = await importPrivateKey(privateKeyString);
+                setUserPrivateKey(privateKey);
+            }
+
             return response;
         } catch (err) {
             setError(err.message);
@@ -57,6 +76,7 @@ export const AuthProvider = ({ children }) => {
 
     const signout = () => {
         setUser(null);
+        setUserPrivateKey(null);
         authService.signout();
     };
 
@@ -64,6 +84,7 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         error,
+        userPrivateKey,
         signup,
         signin,
         signout,    
