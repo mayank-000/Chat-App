@@ -96,7 +96,7 @@ export const getAllUsers = catchAsync(async (req, res) => {
     const allUsers = await User.find({
         _id: { $ne: userId }
     })
-    .select('username email')
+    .select('username email publicKey')
     .sort({ lastMessageAt: 1 });
 
     console.log('Users found:', allUsers.length);
@@ -125,7 +125,7 @@ export const searchUsers = catchAsync(async (req, res) => {
             { email: { $regex: query, $options: 'i' } }
         ]
     })
-    .select('username email')
+    .select('username email publicKey')
     .limit(10);
 
     console.log('Users found:', foundUser._id);
