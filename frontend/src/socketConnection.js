@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 const API_URL = process.env.REACT_APP_API_URL;
 
 if(!API_URL) {
-    console.error("React_APP_API_URL is missing);
+    console.error("React_APP_API_URL is missing");
 }
 
 const BACKEND_URL = API_URL.replace('/api', '');
