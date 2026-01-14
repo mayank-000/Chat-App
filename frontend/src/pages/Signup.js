@@ -68,7 +68,7 @@ const Signup = () => {
       // 5. Store private key in IndexedDB
       // Note: response doesn't have user.id yet, so we'll store after login
       // For now, store with email as temporary key
-      await savePrivateKey(formData.email, privateKeyString);
+      await savePrivateKey(`user:${response.user._id}`, privateKeyString);
 
       setSuccessMsg("Account created successfully! Redirecting to login...");
       setTimeout(() => {
