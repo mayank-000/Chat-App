@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-if(provess.env.REACT_APP_API_URL) {
+if(process.env.REACT_APP_API_URL) {
     console.log("Hii Mayank !");
 }
 const api = axios.create({
