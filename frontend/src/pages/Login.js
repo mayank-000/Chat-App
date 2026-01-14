@@ -31,24 +31,26 @@ const Login = () => {
         try {
             const response = await signin(formData);
 
+            const userId = response.user?.id || response.user?._id;
+    
+            if (!userId) {
+              throw new Error('User ID not found in login response');
+            }
+
             // Check if private key exists in IndexedDB
-            const keyExists = await hasPrivateKey(response.user.id);
+            const keyExists = await hasPrivateKey(userId);
             
             if (!keyExists) {
-                // Try with email (from signup)
-                const keyByEmail = await loadPrivateKey(response.user.email);
-                if (keyByEmail) {
-                    // Re-save with correct user ID
-                    const { savePrivateKey } = await import('../utils/indexdb');
-                    await savePrivateKey(response.user.id, keyByEmail);
+                console.warn('Private key not found for user ID:', userId);
+                alert('⚠️ Encryption keys not found. You won\'t be able to read encrypted messages from this device.');
                 } else {
-                    // Show warning
-                    alert('⚠️ Encryption keys not found. You won\'t be able to read encrypted messages from this device.');
+                    console.log('Private key found for user:', userId);
                 }
             }
 
             navigate('/'); // Redirect to home/chat page
         } catch (error) {
+            console.log('Login error:', error);
             setErrorMsg(error.message || 'Login failed. Please try again.');
         } finally {
             setIsLoading(false);
