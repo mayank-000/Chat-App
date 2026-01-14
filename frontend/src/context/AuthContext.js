@@ -27,15 +27,22 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
         try {
             const response = await authService.getProfile();
+            const userId = response.user?.id || response.user?._id;
             setUser(response.user);
 
             // Load private key from IndexedDB
-            const privateKeyString = await loadPrivateKey(response.user.id);
-            if (privateKeyString) {
-                const privateKey = await importPrivateKey(privateKeyString);
-                setUserPrivateKey(privateKey);
+            if (userId) {
+                const privateKeyString = await loadPrivateKey(userId);
+                if (privateKeyString) {
+                    const privateKey = await importPrivateKey(privateKeyString);
+                    setUserPrivateKey(privateKey);
+                    console.log('Private key loaded successfully');
+                } else {
+                    console.warn('No private key found for user:', userId);
+                }
             }
         } catch (err) {
+            console.error('Auth check failed:', err);
             setUser(null);
             setUserPrivateKey(null);
         } finally {
@@ -47,6 +54,21 @@ export const AuthProvider = ({ children }) => {
         try {
             setError(null);
             const response = await authService.signup(userData);
+            const userId = response.user?.id || response.user?._id;
+
+            setUser(response.user);
+
+            if(userId) {
+                const privateKeyString = await loadPrivateKey(userId);
+                if(privateKeyString) {
+                    const privateKey = await importPrivateKey(privateKeyString);
+                    setUserPrivateKey(privateKey);
+                    console.log('Private key loaded on signin');
+                } else {
+                    console.warn('No private key found for user:', userId);
+                }
+            }
+            
             return response;
         } catch (err) {
             setError(err.message);
