@@ -43,9 +43,8 @@ const Login = () => {
             if (!keyExists) {
                 console.warn('Private key not found for user ID:', userId);
                 alert('⚠️ Encryption keys not found. You won\'t be able to read encrypted messages from this device.');
-                } else {
-                    console.log('Private key found for user:', userId);
-                }
+            } else {
+                console.log('Private key found for user:', userId);
             }
 
             navigate('/'); // Redirect to home/chat page
