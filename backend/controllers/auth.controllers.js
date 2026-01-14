@@ -42,7 +42,16 @@ export const createUserAccount = catchAsync(async (req, res) => {
     // Save user to database
     await newUser.save();
 
-    res.status(201).json({ success: true, message: 'User created successfully' });
+    res.status(201).json({ 
+        success: true, 
+        message: 'User created successfully',
+        user: {
+            id: newUser._id,
+            username: newUser.username,
+            email: newUser.email,
+            publicKey: newUser.publicKey
+        }
+    });
 });
 
 // Login user and generate JWT token
