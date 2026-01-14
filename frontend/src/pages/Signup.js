@@ -65,10 +65,15 @@ const Signup = () => {
       // Call signup API
       const response = await signup(dataToSend);
 
-      // 5. Store private key in IndexedDB
-      // Note: response doesn't have user.id yet, so we'll store after login
-      // For now, store with email as temporary key
-      await savePrivateKey(`user:${response._id}`, privateKeyString);
+      const userId = response.user?.id || response.user?._id || response._id;
+      if(!userId) {
+        console.error('No user ID in response', response);
+        throw new Error('User ID not found in signup response');
+      }
+
+      // Store private key in IndexedDB
+      await savePrivateKey(userId, privateKeyString);
+      console.log('Private key saved for user ID:', userId);
 
       setSuccessMsg("Account created successfully! Redirecting to login...");
       setTimeout(() => {
