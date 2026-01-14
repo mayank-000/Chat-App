@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+if(provess.env.REACT_APP_API_URL) {
+    console.log("Hii Mayank !");
+}
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL,
+    baseURL: 'https://chat-app-3ltt.onrender.com/api',
     withCredentials: true, // This allows sending cookies with requests
     headers: {
         'Content-Type': 'application/json',
