@@ -65,6 +65,8 @@ const Signup = () => {
       // Call signup API
       const response = await signup(dataToSend);
 
+      console.log('Full SignUp response', response);
+
       const userId = response.user?.id || response.user?._id || response._id;
       if(!userId) {
         console.error('No user ID in response', response);
