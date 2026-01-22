@@ -1,4 +1,3 @@
-import api from "./api";
 
 // Helper: ArrayBuffer to Base64
 function arrayBufferToBase64(buffer) {
