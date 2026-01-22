@@ -3,15 +3,26 @@ import localforage from "localforage";
 const keyStore = localforage.createInstance({
   name: "ChatAppKeys",
   storeName: "PrivateKeys",
+  driver: [localforage.INDEXEDDB, localforage.WEBSQL, localforage.LOCALSTORAGE], // FALLBACK drivers
+  version: 1.0,
+  description: "Secure storage for encryption keys"
 });
 
 export async function savePrivateKey(userId, privateKeyString) {
   try {
-    await keyStore.setItem(userId, {
+    const key = `user_${userId}_privateKey`;
+    await keyStore.setItem(key, {
       privateKey: privateKeyString,
       timestamp: Date.now(),
+      userId: userId
     });
-    console.log('Private key saved successfully for user:', userId);
+    
+    // VERIFY Save
+    const verify = await keyStore.getItem(key);
+    if(!verify) throw new Error("Verification failed after save");
+    
+    console.log('Private key saved and verified successfully for user:', userId);
+    return true;
   } catch (err) {
     console.error("Failed to save private key", err);
     throw err;
@@ -21,10 +32,17 @@ export async function savePrivateKey(userId, privateKeyString) {
 // Load private key
 export async function loadPrivateKey(userId) {
   try {
-    const data = await keyStore.getItem(userId);
-    return data ? data.privateKey : null;
+    const key = `user_${userId}_privateKey`;
+    const data = await keyStore.getItem(key);
+
+    if(!data) {
+      console.warn('⚠️ No private key found for user:', userId);
+      return null;
+    }
+
+    return data.privateKey;
   } catch (err) {
-    console.error("Failed to load private key:", err);
+    console.error("❌ Failed to load private key:", err);
     return null;
   }
 }
@@ -32,10 +50,13 @@ export async function loadPrivateKey(userId) {
 // Check if private key exists
 export async function hasPrivateKey(userId) {
   try {
-    const data = await keyStore.getItem(userId);
-    return data !== null;
+    const key = `user_${userId}_privateKey`;
+    const data = await keyStore.getItem(key);
+    const exists = data !== null;
+    console.log(`🔍 Key exists for user ${userId}:`, exists);
+    return exists;
   } catch (err) {
-    console.error("Failed to check private key:", err);
+    console.error("❌ Failed to check private key:", err);
     return false;
   }
 }
@@ -43,10 +64,11 @@ export async function hasPrivateKey(userId) {
 // Delete private key (for logout)
 export async function deletePrivateKey(userId) {
   try {
-    await keyStore.removeItem(userId);
-    console.log('Private key deleted for user:', userId);
+    const key = `user_${userId}_privateKey`;
+    await keyStore.removeItem(key);
+    console.log('🗑️ Private key deleted for user:', userId);
   } catch (err) {
-    console.error("Failed to delete private key:", err);
+    console.error("❌ Failed to delete private key:", err);
     throw err;
   }
 }
