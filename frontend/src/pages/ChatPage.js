@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import chatService from "../services/chat.service";
@@ -33,7 +33,40 @@ const ChatPage = () => {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // Load conversations and all users on mount
+  // Memoize decrypt function
+  const decryptMessageContent = useCallback(async (message) => {
+    try {
+      if(!userPrivateKey) {
+        return "[Encrypted - Key not available]";
+      }
+
+      let encryptedData;
+      try {
+        encryptedData = JSON.parse(message.content);
+      } catch (e) {
+        try {
+          const decrypted = await decryptMessage(message.content, userPrivateKey);
+          return decrypted;
+        } catch (err) {
+          return "[Failed to decrypt - old format]";
+        }
+      }
+      
+      let encryptedContent;
+      if (message.sender._id === user.id) {
+        encryptedContent = encryptedData.forSender;
+      } else {
+        encryptedContent = encryptedData.forReceiver;
+      }
+
+      const decrypted= await decryptMessage(encryptedContent, userPrivateKey);
+      return decrypted;
+    } catch (error) {
+      console.error("Decryption failed for message:", message._id, error);
+      return "[Failed to decrypt]";
+    }
+  }, [userPrivateKey, user.id]);
+  
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") || "light";
     if (savedTheme) {
@@ -41,7 +74,6 @@ const ChatPage = () => {
     }
     loadConversations();
     loadAllUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -49,8 +81,6 @@ const ChatPage = () => {
       if (!userPrivateKey || messages.length === 0) return;
 
       const decrypted = {};
-
-      // Decrypt ALL messages (both sent and received)
       for (const message of messages) {
         try {
           decrypted[message._id] = await decryptMessageContent(message);
@@ -59,23 +89,20 @@ const ChatPage = () => {
           decrypted[message._id] = "[Failed to decrypt]";
         }
       }
-
       setDecryptedMessages(decrypted);
     };
 
     decryptAllMessages();
-  }, [messages, userPrivateKey, user.id]);
+  }, [messages, userPrivateKey, user.id, decryptMessageContent]);
 
   // Setup socket listeners
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("message:receive", async (message) => {
+    const handleMessageReceive = async (message) => {
       console.log("Message received:", message);
-
       setMessages((prev) => [...prev, message]);
 
-      // Decrypt the message (works for both sent and received)
       if (userPrivateKey) {
         try {
           const decrypted = await decryptMessageContent(message);
@@ -91,15 +118,15 @@ const ChatPage = () => {
           }));
         }
       }
-    });
+    };
 
+    socket.on("message:receive", handleMessageReceive);
     socket.on("typing:display", (data) => {
       setTypingUsers((prev) => ({
         ...prev,
         [data.conversationId]: data.username,
       }));
     });
-
     socket.on("typing:hide", (data) => {
       setTypingUsers((prev) => {
         const updated = { ...prev };
@@ -109,11 +136,11 @@ const ChatPage = () => {
     });
 
     return () => {
-      socket.off("message:receive");
+      socket.off("message:receive", handleMessageReceive);
       socket.off("typing:display");
       socket.off("typing:hide");
     };
-  }, [socket]);
+  }, [socket, userPrivateKey, decryptMessageContent]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
