@@ -250,49 +250,6 @@ const ChatPage = () => {
     }
   };
 
-  const decryptMessageContent = async (message) => {
-    try {
-      // Try to decrypt REGARDLESS of who sent it
-      // Both sender and receiver should decrypt with their own private key
-      if (!userPrivateKey) {
-        return "[Encrypted - Key not available]";
-      }
-
-      // Parse the dual-encrypted content
-      let encryptedData;
-      try {
-        encryptedData = JSON.parse(message.content);
-      } catch (e) {
-        // If it's not JSON, it's an old single-encrypted message
-        // Try to decrypt directly
-        try {
-          const decrypted = await decryptMessage(
-            message.content,
-            userPrivateKey
-          );
-          return decrypted;
-        } catch (err) {
-          return "[Failed to decrypt - old format]";
-        }
-      }
-
-      let encryptedContent;
-      if (message.sender._id === user.id) {
-        // Message sent by current user - use sender's encrypted content
-        encryptedContent = encryptedData.forSender;
-      } else {
-        // Message received by current user - use receiver's encrypted content
-        encryptedContent = encryptedData.forReceiver;
-      }
-      // Decrypt
-      const decrypted = await decryptMessage(encryptedContent, userPrivateKey);
-      return decrypted;
-    } catch (error) {
-      console.error("Decryption failed for message:", message._id, error);
-      return "[Failed to decrypt]";
-    }
-  };
-
   const handleTyping = (e) => {
     setMessageInput(e.target.value);
 
