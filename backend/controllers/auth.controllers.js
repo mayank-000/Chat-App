@@ -2,18 +2,31 @@ import { User } from '../models/user.model.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import catchAsync from '../utils/catchAsync.js';
+import { sanitizeUsername, sanitizeEmail } from '../utils/sanitization.js';
 
 import dotenv from 'dotenv';
 dotenv.config()
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// generating access and refresh tokens
+const generateAccessToken = (userId) => {
+    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '1h' });
+};
+const generateRefreshToken = (userId) => {
+    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '7D' });
+}
+
 // Create a new user account
 export const createUserAccount = catchAsync(async (req, res) => {
     const { username, email, password, publicKey } = req.body;
 
-    // Validate input
-    if(!username || !email || !password) {
-        return res.status(400).json({ message: 'All fields are required' });
+    // Sanitize inputs to prevent XSS
+    const sanitizedUsername = sanitizeUsername(username);
+    const sanitizedEmail = sanitizeEmail(email);
+
+    // Validate input after sanitization
+    if(!sanitizedUsername || !sanitizedEmail || !password) {
+        return res.status(400).json({ message: 'All fields are required and must be valid' });
     }
     if(password.length < 6) {
         return res.status(400).json({ message: 'Password must be at least 6 characters' });
@@ -23,7 +36,7 @@ export const createUserAccount = catchAsync(async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: sanitizedEmail });
     if(existingUser) {
         return res.status(400).json({ message: 'User already exists' });
     }
@@ -31,11 +44,11 @@ export const createUserAccount = catchAsync(async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // create new User
+    // Create new User with sanitized inputs
     const newUser = new User({
-        email: email,
+        email: sanitizedEmail,
         password: hashedPassword,
-        username: username,
+        username: sanitizedUsername,
         publicKey: publicKey
     })
 
@@ -58,13 +71,16 @@ export const createUserAccount = catchAsync(async (req, res) => {
 export const loginUser = catchAsync(async (req, res) => {
     const { email, password } = req.body;
 
+    // Sanitize email input
+    const sanitizedEmail = sanitizeEmail(email);
+
     // Validate input
-    if(!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required' });
+    if(!sanitizedEmail || !password) {
+        return res.status(400).json({ message: 'Valid email and password are required' });
     }
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    // Find user by sanitized email
+    const user = await User.findOne({ email: sanitizedEmail });
     if(!user) {
         return res.status(400).json({ message: 'Invalid email or password' });
     }
@@ -77,18 +93,20 @@ export const loginUser = catchAsync(async (req, res) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
     return res 
         .status(200)
-        .cookie('token', token, {
+        .cookie('accesstoken', accessToken, {
             httpOnly: true,
             secure: true,
             sameSite: 'none',
-            maxAge: 24*60*60*1000
+            maxAge: 15*60*1000
         })
         .json({
             success: true,
             message: 'Login successful',
+            refreshToken,
             user: {
                 id: user._id,
                 username: user.username,
@@ -96,8 +114,31 @@ export const loginUser = catchAsync(async (req, res) => {
                 publicKey: user.publicKey
             }
         })
-
 });
+
+export const refreshAccessToken = catchAsync(async (req, res) => {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+        return res.status(401).json({ success: false, message: 'Refresh token required' });
+    }
+
+    const decoded = jwt.verify(refreshToken, JWT_SECRET);
+    const newAccessToken = generateAccessToken(decoded.id);
+
+    return res
+        .cookie('accesstoken', newAccessToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            maxAge: 15*60*1000
+        })
+        .json({
+            success: true, 
+            message: 'Access token refreshed'
+        });
+})
+
 
 // Get user profile
 export const getUserProfile = catchAsync(async (req, res) => {

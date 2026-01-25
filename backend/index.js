@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 
 import express from 'express';
 import cors from 'cors';
@@ -13,6 +14,7 @@ app.use(cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true
 }));
+app.use(helmet());
 app.use(express.json());
 
 const PORT = process.env.PORT || 6060;
@@ -21,12 +23,13 @@ import connectDB from './config/db.js';
 connectDB();
 
 app.get('/', (req, res) => {
-    res.send("API is running...");
+    res.send("API is running...")
 })
 
 import authRouter from './routes/auth.routes.js';
 import conversationRouter from './routes/conversation.routes.js';
 
+// Routes with rate limiting handled individually in each route file
 app.use('/api/auth', authRouter);
 app.use('/api', conversationRouter);
 

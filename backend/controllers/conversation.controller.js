@@ -2,6 +2,7 @@ import { Conversation } from '../models/conversation.model.js';
 import { User } from '../models/user.model.js';
 import { Message } from '../models/message.model.js';
 import catchAsync from '../utils/catchAsync.js';
+import { sanitizeTextInput } from '../utils/sanitization.js';
 
 // Get all conversations for a user
 export const getUserConversations = catchAsync(async (req, res) => {
@@ -112,17 +113,20 @@ export const searchUsers = catchAsync(async (req, res) => {
     const { query } = req.query;
     const userId = req.userId;
 
-    console.log("Searching users with query:", query);
+    // Sanitize search query to prevent XSS and injection
+    const sanitizedQuery = sanitizeTextInput(query);
+
+    console.log("Searching users with sanitized query:", sanitizedQuery);
     console.log("Excluding current user ID:", userId);
 
-    if(!query) {
-        return res.status(400).json({ success: false, message: 'Search query is required' });
+    if(!sanitizedQuery) {
+        return res.status(400).json({ success: false, message: 'Valid search query is required' });
     }
     const foundUser = await User.find({
         _id: { $ne: userId }, // Exclude current user
         $or: [
-            { username: { $regex: query, $options: 'i' } },
-            { email: { $regex: query, $options: 'i' } }
+            { username: { $regex: sanitizedQuery, $options: 'i' } },
+            { email: { $regex: sanitizedQuery, $options: 'i' } }
         ]
     })
     .select('username email publicKey')

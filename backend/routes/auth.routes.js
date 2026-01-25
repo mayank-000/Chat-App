@@ -1,12 +1,14 @@
 import express from 'express';
-import { createUserAccount, loginUser, getUserProfile } from '../controllers/auth.controllers.js';
-import { verifyToken } from '../middlewares/auth.middleware.js';
+import { createUserAccount, loginUser, getUserProfile, refreshAccessToken } from '../controllers/auth.controllers.js';
+import { verifyAccessToken } from '../middlewares/auth.middleware.js';
+import { authLimiter, generalLimiter } from '../middlewares/rateLimit.middleware.js';
 
 const router = express.Router();
 
-// Authentication Routes
-router.post("/signup", createUserAccount);
-router.post("/signin", loginUser);
-router.get("/profile", verifyToken, getUserProfile);
+// Authentication Routes with rate limiting
+router.post("/signup", authLimiter, createUserAccount);
+router.post("/signin", authLimiter, loginUser);
+router.post("/refreshtoken", generalLimiter, refreshAccessToken);
+router.get("/profile", generalLimiter, verifyAccessToken, getUserProfile);
 
 export default router;

@@ -1,4 +1,4 @@
-import api from './api';
+import api, { refreshClient } from './api';
 
 const authService = {
     // Sign up a new user
@@ -15,6 +15,9 @@ const authService = {
     signin: async (Credentials) => {
         try {
             const response = await api.post('/auth/signin', Credentials);
+            if(response.data.refreshToken) {
+                localStorage.setItem('refreshToken', response.data.refreshToken);
+            }
             return response.data;
         } catch (error) {
             throw error.response?.data || error;
@@ -31,9 +34,28 @@ const authService = {
         }
     },
 
-    // Sign out the user
-    signout: () => {
-        window.location.href = '/login';
+    refreshToken: async () => {
+        try {
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (!refreshToken) {
+                throw new Error('No refresh token available');
+            }
+            const response = await refreshClient.post('/auth/refreshtoken', { refreshToken });
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error;
+        }
+    },
+
+    // Sign out the user (httpOnly accesstoken cookie is cleared by backend on /auth/signout if you add that route)
+    signout: async () => {
+        try {
+            localStorage.removeItem('refreshToken');
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            window.location.href = '/login';
+        }
     }
 };
 

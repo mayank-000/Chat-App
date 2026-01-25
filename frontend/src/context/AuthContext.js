@@ -96,10 +96,10 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const signout = () => {
+    const signout = async () => {
         setUser(null);
         setUserPrivateKey(null);
-        authService.signout();
+        await authService.signout();
     };
 
     const value = {
@@ -109,7 +109,7 @@ export const AuthProvider = ({ children }) => {
         userPrivateKey,
         signup,
         signin,
-        signout,    
+        signout, 
         isAuthenticated: !!user,
     };
 

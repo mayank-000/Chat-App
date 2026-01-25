@@ -1,6 +1,7 @@
 import { User } from '../models/user.model.js';
 import { Message } from '../models/message.model.js';
 import { Conversation } from '../models/conversation.model.js';
+import { sanitizeMessageContent, sanitizeUsername, containsMaliciousContent } from '../utils/sanitization.js';
 
 export const setupSocketHandlers = (io) => {
     io.on('connection', (socket) => {
@@ -44,11 +45,32 @@ export const setupSocketHandlers = (io) => {
             try {
                 const { conversationId, content, messageType, mediaUrl } = data;
 
-                // Create a save message
-                const  message = new Message({
+                // Validate required fields
+                if (!conversationId || !content) {
+                    socket.emit('message:error', { error: 'Conversation ID and content are required' });
+                    return;
+                }
+
+                // Check for malicious content before processing
+                if (containsMaliciousContent(content)) {
+                    socket.emit('message:error', { error: 'Message contains potentially harmful content' });
+                    return;
+                }
+
+                // Sanitize message content to prevent XSS
+                const sanitizedContent = sanitizeMessageContent(content);
+
+                // Validate content isn't empty after sanitization
+                if (!sanitizedContent || sanitizedContent.trim().length === 0) {
+                    socket.emit('message:error', { error: 'Message content is invalid or empty' });
+                    return;
+                }
+
+                // Create a save message with sanitized content
+                const message = new Message({
                     conversationId,
                     sender: socket.userId,
-                    content,
+                    content: sanitizedContent,
                     messageType: messageType || 'text',
                     mediaUrl: mediaUrl || null,
                 });
@@ -56,26 +78,28 @@ export const setupSocketHandlers = (io) => {
                 await message.save();
                 await message.populate('sender', 'username');
 
-                // update conversation's last message
+                // Update conversation's last message timestamp
                 await Conversation.findByIdAndUpdate(conversationId, {
                     lastMessageAt: new Date()
                 });
 
-                // Send the message to all users presents in the conversation(as Parcipants)
+                // Send the sanitized message to all users in the conversation
                 io.to(`conversation:${conversationId}`).emit('message:receive', message);
 
             } catch (err) {
                 console.error('Error sending message:', err);
-                socket.emit('message:error', {error: 'Failed to send message' });
+                socket.emit('message:error', { error: 'Failed to send message' });
             }
         });
 
         // Typing indication
         socket.on('typing:start', (data) => {
             const { conversationId, username } = data;
+            // Sanitize username to prevent XSS in typing indicators
+            const sanitizedUsername = sanitizeUsername(username);
             socket.to(`conversation:${conversationId}`).emit('typing:display', {
                 userId: socket.userId,
-                username,
+                username: sanitizedUsername,
                 conversationId
             });
         }); 

@@ -4,9 +4,9 @@ import dotenv from "dotenv";
 dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Middleware to verify JWT token
-export const verifyToken = async (req, res, next) => {
-  const token = req.cookies.token;
+// Middleware to verify JWT token (cookie name must match login/refresh: accesstoken)
+export const verifyAccessToken = async (req, res, next) => {
+  const token = req.cookies.accesstoken;
   if (!token) {
     return res
       .status(401)
