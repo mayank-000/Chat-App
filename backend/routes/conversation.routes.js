@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyToken } from '../middlewares/auth.middleware.js';
+import { verifyAccessToken } from '../middlewares/auth.middleware.js';
 import { chatLimiter, generalLimiter } from '../middlewares/rateLimit.middleware.js';
 import {
     getUserConversations,
@@ -13,7 +13,7 @@ import {
 const router = express.Router();
 
 // Apply authentication middleware to all routes
-router.use(verifyToken);
+router.use(verifyAccessToken);
 
 // Conversation Routes with rate limiting
 router.get('/conversations', generalLimiter, getUserConversations);
