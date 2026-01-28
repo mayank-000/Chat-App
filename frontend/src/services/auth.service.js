@@ -36,10 +36,6 @@ const authService = {
 
     refreshToken: async () => {
         try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            if (!refreshToken) {
-                throw new Error('No refresh token available');
-            }
             const response = await refreshClient.post('/auth/refreshtoken', { refreshToken });
             return response.data;
         } catch (error) {
@@ -47,10 +43,10 @@ const authService = {
         }
     },
 
-    // Sign out the user (httpOnly accesstoken cookie is cleared by backend on /auth/signout if you add that route)
+    // Sign out the user (httpOnly accesstoken cookie is cleared by backend on /auth/signout)
     signout: async () => {
         try {
-            localStorage.removeItem('refreshToken');
+            await api.post('/auth/logout');
         } catch (error) {
             console.error('Logout error:', error);
         } finally {

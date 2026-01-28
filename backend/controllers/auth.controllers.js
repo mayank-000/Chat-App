@@ -95,6 +95,13 @@ export const loginUser = catchAsync(async (req, res) => {
     // Generate JWT token
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    user.refreshToken = hashedRefreshToken;
+    user.refreshTokenExpiry = Date.now()+7*24*60*60*1000;
+    await user.save();
+
     return res 
         .status(200)
         .cookie('accesstoken', accessToken, {
@@ -103,10 +110,15 @@ export const loginUser = catchAsync(async (req, res) => {
             sameSite: 'none',
             maxAge: 15*60*1000
         })
+        .cookie('refreshtoken', refreshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            maxAge: 7*24*60*60*1000
+        })
         .json({
             success: true,
             message: 'Login successful',
-            refreshToken,
             user: {
                 id: user._id,
                 username: user.username,
@@ -117,14 +129,28 @@ export const loginUser = catchAsync(async (req, res) => {
 });
 
 export const refreshAccessToken = catchAsync(async (req, res) => {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-        return res.status(401).json({ success: false, message: 'Refresh token required' });
+        return res.status(401).json({ success: false, message: 'No Refresh token' });
     }
 
-    const decoded = jwt.verify(refreshToken, JWT_SECRET);
-    const newAccessToken = generateAccessToken(decoded.id);
+    const payload = jwt.verify(refreshToken, JWT_SECRET)
+
+    const user = await User.findById(payload.userId);
+
+    if(!user || !user.refreshToken) {
+        return res.status(401).json({ message: 'Invalid Token Provided' });
+    }
+
+    const isValid = await bcrypt.compare(refreshToken, user.refreshToken);
+
+    // Check password
+    if(!isValid || user.refreshTokenExpiry < Date.now()) {
+        return res.status(401).json({ message: 'Expired Refresh Token' });
+    }
+
+    const newAccessToken = generateAccessToken(user._id);
 
     return res
         .cookie('accesstoken', newAccessToken, {
@@ -155,3 +181,8 @@ export const getUserProfile = catchAsync(async (req, res) => {
         user
     });
 });
+
+// Logout User
+export const logout = async() => {
+    cookie.clear('accesstoken');
+};
