@@ -10,6 +10,6 @@ router.post("/signup", authLimiter, createUserAccount);
 router.post("/signin", authLimiter, loginUser);
 router.post("/refreshtoken", generalLimiter, refreshAccessToken);
 router.get("/profile", generalLimiter, verifyAccessToken, getUserProfile);
-router.get("/logout", logout);
+router.post("/logout", verifyAccessToken, logout);
 
 export default router;

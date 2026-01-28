@@ -15,9 +15,6 @@ const authService = {
     signin: async (Credentials) => {
         try {
             const response = await api.post('/auth/signin', Credentials);
-            if(response.data.refreshToken) {
-                localStorage.setItem('refreshToken', response.data.refreshToken);
-            }
             return response.data;
         } catch (error) {
             throw error.response?.data || error;
@@ -36,7 +33,7 @@ const authService = {
 
     refreshToken: async () => {
         try {
-            const response = await refreshClient.post('/auth/refreshtoken', { refreshToken });
+            const response = await refreshClient.post('/auth/refreshtoken');
             return response.data;
         } catch (error) {
             throw error.response?.data || error;

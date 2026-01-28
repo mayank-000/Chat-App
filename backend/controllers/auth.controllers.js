@@ -10,10 +10,10 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // generating access and refresh tokens
 const generateAccessToken = (userId) => {
-    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '1h' });
+    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '15m' });
 };
 const generateRefreshToken = (userId) => {
-    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '7D' });
+    return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '7d' });
 }
 
 // Create a new user account
@@ -86,7 +86,6 @@ export const loginUser = catchAsync(async (req, res) => {
     }
     // Hash password
     const isPasswordValid = await bcrypt.compare(password, user.password);
-
     // Check password
     if(!isPasswordValid) {
         return res.status(400).json({ message: 'Invalid email or password' });
@@ -97,9 +96,8 @@ export const loginUser = catchAsync(async (req, res) => {
     const refreshToken = generateRefreshToken(user._id);
 
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-
     user.refreshToken = hashedRefreshToken;
-    user.refreshTokenExpiry = Date.now()+7*24*60*60*1000;
+    user.refreshTokenExpiry = Date.now() + 7*24*60*60*1000;
     await user.save();
 
     return res 
@@ -129,15 +127,20 @@ export const loginUser = catchAsync(async (req, res) => {
 });
 
 export const refreshAccessToken = catchAsync(async (req, res) => {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies.refreshtoken;
 
     if (!refreshToken) {
         return res.status(401).json({ success: false, message: 'No Refresh token' });
     }
 
-    const payload = jwt.verify(refreshToken, JWT_SECRET)
+    let payload;
+    try {
+        payload = jwt.verify(refreshToken, JWT_SECRET);
+    } catch (err) {
+        return res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+    }
 
-    const user = await User.findById(payload.userId);
+    const user = await User.findById(payload.id);
 
     if(!user || !user.refreshToken) {
         return res.status(401).json({ message: 'Invalid Token Provided' });
@@ -145,14 +148,14 @@ export const refreshAccessToken = catchAsync(async (req, res) => {
 
     const isValid = await bcrypt.compare(refreshToken, user.refreshToken);
 
-    // Check password
     if(!isValid || user.refreshTokenExpiry < Date.now()) {
-        return res.status(401).json({ message: 'Expired Refresh Token' });
+        return res.status(401).json({ message: 'Invalid or Expired Refresh Token' });
     }
 
     const newAccessToken = generateAccessToken(user._id);
 
     return res
+        .status(200)
         .cookie('accesstoken', newAccessToken, {
             httpOnly: true,
             secure: true,
@@ -183,6 +186,28 @@ export const getUserProfile = catchAsync(async (req, res) => {
 });
 
 // Logout User
-export const logout = async() => {
-    cookie.clear('accesstoken');
-};
+export const logout = catchAsync(async (req, res) => {
+    // Clear refresh token from database
+    if(req.user) {
+        await User.findByIdAndUpdate(req.user._id, {
+            refreshToken: null,
+            refreshTokenExpiry: null
+        })
+    }
+    // Clearing up all cookies
+    res
+        .clearCookie('accesstoken', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none'
+        })
+        .clearCookie('refreshtoken', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none'
+        })
+        .json({
+            sucess: true,
+            message: 'Logged out Successfully'
+        });
+});

@@ -43,17 +43,8 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        // Don't retry refresh request; don't retry if we already retried
-        if (originalRequest.skipAuthRefresh || originalRequest._retry) {
-            const currentPath = window.location.pathname;
-            if (currentPath !== '/login' && currentPath !== '/signup') {
-                window.location.href = '/login';
-            }
-            return Promise.reject(error);
-        }
-
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
+        // Don't retry refresh request or don't retry if we already retried
+        if (originalRequest._retry || originalRequest.url?.includes('/auth/refreshtoken')) {
             const currentPath = window.location.pathname;
             if (currentPath !== '/login' && currentPath !== '/signup') {
                 window.location.href = '/login';
@@ -64,18 +55,25 @@ api.interceptors.response.use(
         if (isRefreshing) {
             return new Promise((resolve, reject) => {
                 failedQueue.push({ resolve, reject });
-            }).then(() => api(originalRequest));
+            })
+            .then(() => api(originalRequest))
+            .catch(err => Promise.reject(err));
         }
 
         originalRequest._retry = true;
         isRefreshing = true;
 
         try {
-            await refreshClient.post('/auth/refreshtoken', { refreshToken });
+            await refreshClient.post('/auth/refreshtoken');
+
+            // Process queued requests
             processQueue(null, true);
+
+            // retry original request
             return api(originalRequest);
         } catch (refreshErr) {
             processQueue(refreshErr, null);
+            
             const currentPath = window.location.pathname;
             if (currentPath !== '/login' && currentPath !== '/signup') {
                 window.location.href = '/login';
