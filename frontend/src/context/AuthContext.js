@@ -2,6 +2,9 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from '../services/auth.service';
 import { loadPrivateKey } from '../utils/indexdb';
 import { importPrivateKey } from '../services/encryption.service';
+import useFCM from '../hooks/useFCM';
+
+const { initializeFCM, removeFCMToken } = useFCM();
 
 const AuthContext = createContext(null);
 
@@ -41,6 +44,10 @@ export const AuthProvider = ({ children }) => {
                     console.warn('No private key found for user:', userId);
                 }
             }
+            if (Notification.permission === 'granted') {
+                await initializeFCM();
+            }
+
         } catch (err) {
             console.error('Auth check failed:', err);
             setUser(null);
@@ -88,6 +95,8 @@ export const AuthProvider = ({ children }) => {
                 const privateKey = await importPrivateKey(privateKeyString);
                 setUserPrivateKey(privateKey);
             }
+            // Permission popup here - user just logged in
+            await initializeFCM();
 
             return response;
         } catch (err) {
@@ -97,6 +106,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const signout = async () => {
+        await removeFCMToken();
         setUser(null);
         setUserPrivateKey(null);
         await authService.signout();

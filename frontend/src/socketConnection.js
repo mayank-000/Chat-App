@@ -1,11 +1,5 @@
 import { io } from "socket.io-client";
 
-const API_URL = process.env.REACT_APP_API_URL;
-
-if(!API_URL) {
-    console.error("REACT_APP_API_URL is missing");
-}
-
 const BACKEND_URL = 'https://chat-app-3ltt.onrender.com';
     
 const socket = io(BACKEND_URL, {

@@ -118,6 +118,10 @@ const ChatPage = () => {
           }));
         }
       }
+      if(document.visibilityState === 'visible') {
+        console.log("Document is visible, showing notification");
+        showNotification(message);
+      }
     };
 
     socket.on("message:receive", handleMessageReceive);

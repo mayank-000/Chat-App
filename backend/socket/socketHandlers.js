@@ -1,6 +1,7 @@
 import { User } from '../models/user.model.js';
 import { Message } from '../models/message.model.js';
 import { Conversation } from '../models/conversation.model.js';
+import { sendPushNotification } from '../services/fcmService.js'
 import { sanitizeMessageContent, sanitizeUsername, containsMaliciousContent } from '../utils/sanitization.js';
 
 export const setupSocketHandlers = (io) => {
@@ -85,6 +86,23 @@ export const setupSocketHandlers = (io) => {
 
                 // Send the sanitized message to all users in the conversation
                 io.to(`conversation:${conversationId}`).emit('message:receive', message);
+
+                // notification setup
+                const conversation = await Conversation.findById(conversationId)
+                    .populate('participants', 'username fcmTokens');
+
+                const recipient = conversation.participants.find(
+                    p => p._id.toString() !== socket.userId
+                );
+
+                if (recipient && recipient.fcmTokens?.length > 0) {
+                    const senderUser = await User.findById(socket.userId).select('username');
+                    await sendPushNotification(
+                        recipient.fcmTokens, 
+                        senderUser.username,
+                        conversationId
+                    );
+                }
 
             } catch (err) {
                 console.error('Error sending message:', err);
