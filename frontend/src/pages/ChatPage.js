@@ -18,6 +18,8 @@ const ChatPage = () => {
     socket,
   } = useSocket();
 
+  const { listenForegroundMessages } = useFCM();
+
   const [conversations, setConversations] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -36,9 +38,7 @@ const ChatPage = () => {
 
   // listning notification
   useEffect(() => {
-    const { listenForegroundMessages } = useFCM();
-
-    const unsubscribe = listenForegroundMessages((payload) => {
+      const unsubscribe = listenForegroundMessages((payload) => {
       console.log('Foreground notification received', payload);
       // Showing notification or updating the ui
       if(Notification.permission === 'granted') {
@@ -52,7 +52,7 @@ const ChatPage = () => {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, []);
+  }, [listenForegroundMessages]);
 
   // Memoize decrypt function
   const decryptMessageContent = useCallback(async (message) => {
