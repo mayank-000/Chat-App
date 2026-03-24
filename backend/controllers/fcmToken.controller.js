@@ -21,8 +21,8 @@ export const deleteFCMToken = catchAsync(async (req, res) => {
     const userId = req.userId;
 
     if(token) {
-        await User.findByIdAndDelete(userId, {
-            $pull: { fcmToken: []}
+        await User.findByIdAndUpdate(userId, {
+            $pull: { fcmTokens: token}
         });
     }
     res.status(200).json({ success: true, message: 'FCM token removed'});

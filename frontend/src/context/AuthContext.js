@@ -4,8 +4,6 @@ import { loadPrivateKey } from '../utils/indexdb';
 import { importPrivateKey } from '../services/encryption.service';
 import useFCM from '../hooks/useFCM';
 
-const { initializeFCM, removeFCMToken } = useFCM();
-
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
@@ -21,6 +19,8 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [userPrivateKey, setUserPrivateKey] = useState(null);
+
+    const { initializeFCM, removeFCMToken } = useFCM();
 
     // Check if user is already logged in on component mount
     useEffect(() => {

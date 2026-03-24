@@ -18,10 +18,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
-const analytics = getAnalytics(app);
+export const app = initializeApp(firebaseConfig);
+export const messaging = getMessaging(app);
+export const analytics = getAnalytics(app);
 
-export default { app, messaging, analytics };
-
-// BM0KX7JZ1zpCzBiJRbe5sSCLEMJivBxT-1DiX3XxPtu96kR7SToVzMSYftdKMwVfTeuxerdAOHLuea9-Ey4ajc4

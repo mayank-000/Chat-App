@@ -99,6 +99,15 @@ const ChatPage = () => {
   useEffect(() => {
     if (!socket) return;
 
+    const showNotification = (message) => {
+      if(Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+        new Notification('New Message', {
+          body: `${message.sender.username}: [Encrypted Message]`,
+          icon: '/notification-icon.png'
+        })
+      }
+    }
+
     const handleMessageReceive = async (message) => {
       console.log("Message received:", message);
       setMessages((prev) => [...prev, message]);
