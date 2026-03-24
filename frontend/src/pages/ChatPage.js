@@ -4,6 +4,7 @@ import { useSocket } from "../context/SocketContext";
 import chatService from "../services/chat.service";
 import { encryptMessage, decryptMessage } from "../services/encryption.service";
 import "./ChatPage.css";
+import useFCM from "../hooks/useFCM";
 
 const ChatPage = () => {
   const { user, signout, userPrivateKey } = useAuth();
@@ -32,6 +33,26 @@ const ChatPage = () => {
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  // listning notification
+  useEffect(() => {
+    const { listenForegroundMessages } = useFCM();
+
+    const unsubscribe = listenForegroundMessages((payload) => {
+      console.log('Foreground notification received', payload);
+      // Showing notification or updating the ui
+      if(Notification.permission === 'granted') {
+        new Notification(payload.notification.title, {
+          body: payload.notification.body,
+          icon: '/logo192.png',
+          data: payload.data
+        });
+      }
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
 
   // Memoize decrypt function
   const decryptMessageContent = useCallback(async (message) => {
@@ -103,7 +124,7 @@ const ChatPage = () => {
       if(Notification.permission === 'granted' && document.visibilityState === 'hidden') {
         new Notification('New Message', {
           body: `${message.sender.username}: [Encrypted Message]`,
-          icon: '/notification-icon.png'
+          icon: '/logo192.png'
         })
       }
     }
@@ -127,8 +148,8 @@ const ChatPage = () => {
           }));
         }
       }
-      if(document.visibilityState === 'visible') {
-        console.log("Document is visible, showing notification");
+      if(document.visibilityState === 'hidden') {
+        console.log("Document is hidden, showing notification");
         showNotification(message);
       }
     };
