@@ -5,8 +5,9 @@ import chatService from "../services/chat.service";
 import { encryptMessage, decryptMessage } from "../services/encryption.service";
 import "./ChatPage.css";
 
+
 const ChatPage = () => {
-  const { user, signout, userPrivateKey } = useAuth();
+  const { user, signout, userPrivateKey, listenForegroundMessages } = useAuth();
   const {
     isConnected,
     joinConversation,
@@ -32,6 +33,24 @@ const ChatPage = () => {
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  // listning notification
+  useEffect(() => {
+      const unsubscribe = listenForegroundMessages((payload) => {
+      console.log('Foreground notification received', payload);
+      // Showing notification or updating the ui
+      if(Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+        new Notification(payload.notification?.title || 'New Message', {
+          body: payload.notification?.body,
+          icon: '/logo192.png',
+          data: payload.data
+        });
+      }
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [listenForegroundMessages]);
 
   // Memoize decrypt function
   const decryptMessageContent = useCallback(async (message) => {
@@ -99,6 +118,15 @@ const ChatPage = () => {
   useEffect(() => {
     if (!socket) return;
 
+    const showNotification = (message) => {
+      if(Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+        new Notification('New Message', {
+          body: `${message.sender.username}: [Encrypted Message]`,
+          icon: '/logo192.png'
+        })
+      }
+    }
+
     const handleMessageReceive = async (message) => {
       console.log("Message received:", message);
       setMessages((prev) => [...prev, message]);
@@ -117,6 +145,10 @@ const ChatPage = () => {
             [message._id]: "[Failed to decrypt]",
           }));
         }
+      }
+      if(document.visibilityState === 'hidden') {
+        console.log("Document is hidden, showing notification");
+        showNotification(message);
       }
     };
 

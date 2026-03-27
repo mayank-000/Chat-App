@@ -30,7 +30,11 @@ const userSchema = new mongoose.Schema({
     refreshTokenExpiry: {
         type: Date,
         default: null,
-    }
+    },
+    fcmTokens: {
+        type: [String],
+        default: [],
+    },
 }, { timestamps: true });
 
 export const User = mongoose.model('User', userSchema);
