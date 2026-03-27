@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import authService from '../services/auth.service';
 import { loadPrivateKey } from '../utils/indexdb';
 import { importPrivateKey } from '../services/encryption.service';
@@ -22,12 +22,7 @@ export const AuthProvider = ({ children }) => {
 
     const { initializeFCM, removeFCMToken, listenForegroundMessages } = useFCM();
 
-    // Check if user is already logged in on component mount
-    useEffect(() => {
-        checkAuth();
-    }, []);
-
-    const checkAuth = async () => {
+    const checkAuth = useCallback(async () => {
         try {
             const response = await authService.getProfile();
             const userId = response.user?.id || response.user?._id;
@@ -55,7 +50,12 @@ export const AuthProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [initializeFCM]);
+
+    // Check if user is already logged in on component mount
+    useEffect(() => {
+        checkAuth();
+    }, [checkAuth]);
 
     const signup = async (userData) => {
         try {
