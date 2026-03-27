@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import authService from '../services/auth.service';
 import { loadPrivateKey } from '../utils/indexdb';
 import { importPrivateKey } from '../services/encryption.service';
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
         if (Notification.permission === 'granted') {
             initializeFCM();
         }
-    }, [user]); 
+    }, [user, initializeFCM]); 
 
     const checkAuth = async () => {
         try {
