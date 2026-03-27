@@ -8,7 +8,6 @@ firebase.initializeApp({
     storageBucket: "chatapp-557f5.firebasestorage.app",
     messagingSenderId: "926513330612",
     appId: "1:926513330612:web:09e0a73f21ec6699299ae1",
-    measurementId: "G-VDR8DB390Q"
 });
 
 const messaging = firebase.messaging();
@@ -32,10 +31,10 @@ self.addEventListener('notificationclick', (event) => {
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            if (clientList.length > 0) {
-                return clientList[0].focus();
+            for (const client of clientList) {
+                if ('focus' in client) return client.focus();
             }
-            return clients.openWindow('/');
+            if(clients.openWindow) return clients.openWindow('/');
         })
     );
 });

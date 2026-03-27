@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
     const [error, setError] = useState(null);
     const [userPrivateKey, setUserPrivateKey] = useState(null);
 
-    const { initializeFCM, removeFCMToken } = useFCM();
+    const { initializeFCM, removeFCMToken, listenForegroundMessages } = useFCM();
 
     // Check if user is already logged in on component mount
     useEffect(() => {
@@ -121,6 +121,7 @@ export const AuthProvider = ({ children }) => {
         signin,
         signout, 
         isAuthenticated: !!user,
+        listenForegroundMessages,
     };
 
     return (

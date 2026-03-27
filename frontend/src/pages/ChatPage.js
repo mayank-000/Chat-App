@@ -4,10 +4,10 @@ import { useSocket } from "../context/SocketContext";
 import chatService from "../services/chat.service";
 import { encryptMessage, decryptMessage } from "../services/encryption.service";
 import "./ChatPage.css";
-import useFCM from "../hooks/useFCM";
+
 
 const ChatPage = () => {
-  const { user, signout, userPrivateKey } = useAuth();
+  const { user, signout, userPrivateKey, listenForegroundMessages } = useAuth();
   const {
     isConnected,
     joinConversation,
@@ -17,8 +17,6 @@ const ChatPage = () => {
     stopTyping,
     socket,
   } = useSocket();
-
-  const { listenForegroundMessages } = useFCM();
 
   const [conversations, setConversations] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -41,9 +39,9 @@ const ChatPage = () => {
       const unsubscribe = listenForegroundMessages((payload) => {
       console.log('Foreground notification received', payload);
       // Showing notification or updating the ui
-      if(Notification.permission === 'granted') {
-        new Notification(payload.notification.title, {
-          body: payload.notification.body,
+      if(Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+        new Notification(payload.notification?.title || 'New Message', {
+          body: payload.notification?.body,
           icon: '/logo192.png',
           data: payload.data
         });

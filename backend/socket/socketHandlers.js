@@ -89,13 +89,13 @@ export const setupSocketHandlers = (io) => {
 
                 // notification setup
                 const conversation = await Conversation.findById(conversationId)
-                    .populate('participants', 'username fcmTokens');
+                    .populate('participants', 'username fcmTokens isOnline');
 
                 const recipient = conversation.participants.find(
                     p => p._id.toString() !== socket.userId
                 );
 
-                if (recipient && recipient.fcmTokens?.length > 0) {
+                if (recipient && !recipient.isOnline && recipient.fcmTokens?.length > 0) {
                     const senderUser = await User.findById(socket.userId).select('username');
                     await sendPushNotification(
                         recipient.fcmTokens, 
