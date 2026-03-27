@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { getToken, onMessage, deleteToken } from "firebase/messaging";
 import { messaging } from "../config/firebase";
 import api from "../services/api";
@@ -9,7 +9,7 @@ const useFCM = () => {
     const [token, setToken] = useState(null);
     const [permissionStatus, setPermissionStatus] = useState(Notification.permission);
 
-    const initializeFCM = async () => {
+    const initializeFCM = useCallback( async () => {
         try {
             const permission = await Notification.requestPermission();
             setPermissionStatus(permission);
@@ -32,16 +32,16 @@ const useFCM = () => {
         } catch (error) {
             console.error("FCM initialization failed:", error);
         }
-    };
+    }, []);
 
-    const listenForegroundMessages = (callback) => {
+    const listenForegroundMessages = useCallback ((callback) => {
         const unsubscribe = onMessage(messaging, (payload) => {
             if(callback) callback(payload);
         });
         return unsubscribe;
-    };
+    }, []);
 
-    const removeFCMToken = async () => {
+    const removeFCMToken = useCallback (async () => {
         try {
             if (token) {
                 await api.delete('/fcm/token', { data: { token } });
@@ -51,7 +51,7 @@ const useFCM = () => {
         } catch (error) {
             console.error("Failed to remove FCM token:", error);
         }
-    };
+    }, [token]); // Only recreates when token changes
     return { token, permissionStatus, initializeFCM, removeFCMToken, listenForegroundMessages };
 };
 
