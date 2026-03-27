@@ -118,15 +118,6 @@ const ChatPage = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const showNotification = (message) => {
-      if(Notification.permission === 'granted' && document.visibilityState === 'hidden') {
-        new Notification('New Message', {
-          body: `${message.sender.username}: [Encrypted Message]`,
-          icon: '/logo192.png'
-        })
-      }
-    }
-
     const handleMessageReceive = async (message) => {
       console.log("Message received:", message);
       setMessages((prev) => [...prev, message]);
@@ -146,9 +137,12 @@ const ChatPage = () => {
           }));
         }
       }
-      if(document.visibilityState === 'hidden') {
+      if(document.visibilityState === 'hidden' && Notification.permission === 'granted') {
         console.log("Document is hidden, showing notification");
-        showNotification(message);
+        new Notification('New Message Received', {
+          body: `${message.sender.username}: [Encrypted Message]`,
+          icon: '/logo192.png'
+        })
       }
     };
 

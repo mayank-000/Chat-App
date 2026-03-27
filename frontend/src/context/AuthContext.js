@@ -22,7 +22,20 @@ export const AuthProvider = ({ children }) => {
 
     const { initializeFCM, removeFCMToken, listenForegroundMessages } = useFCM();
 
-    const checkAuth = useCallback(async () => {
+    // Check if user is already logged in on component mount
+    useEffect(() => {
+        checkAuth();
+    }, []);
+
+    // Runs once when user is set after login or page reload
+    useEffect(() => {
+        if (!user) return;
+        if (Notification.permission === 'granted') {
+            initializeFCM();
+        }
+    }, [user]); 
+
+    const checkAuth = async () => {
         try {
             const response = await authService.getProfile();
             const userId = response.user?.id || response.user?._id;
@@ -39,10 +52,6 @@ export const AuthProvider = ({ children }) => {
                     console.warn('No private key found for user:', userId);
                 }
             }
-            if (Notification.permission === 'granted') {
-                await initializeFCM();
-            }
-
         } catch (err) {
             console.error('Auth check failed:', err);
             setUser(null);
@@ -50,12 +59,7 @@ export const AuthProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, [initializeFCM]);
-
-    // Check if user is already logged in on component mount
-    useEffect(() => {
-        checkAuth();
-    }, [checkAuth]);
+    };
 
     const signup = async (userData) => {
         try {
@@ -75,7 +79,6 @@ export const AuthProvider = ({ children }) => {
                     console.warn('No private key found for user:', userId);
                 }
             }
-            
             return response;
         } catch (err) {
             setError(err.message);
@@ -95,9 +98,9 @@ export const AuthProvider = ({ children }) => {
                 const privateKey = await importPrivateKey(privateKeyString);
                 setUserPrivateKey(privateKey);
             }
-            // Permission popup here - user just logged in
+            // FCM initializes automatically via the user useEffect
+            // This also triggers the permission popup on first login
             await initializeFCM();
-
             return response;
         } catch (err) {
             setError(err.message);

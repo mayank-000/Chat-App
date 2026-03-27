@@ -9,7 +9,7 @@ const useFCM = () => {
     const [token, setToken] = useState(null);
     const [permissionStatus, setPermissionStatus] = useState(Notification.permission);
 
-    const initializeFCM = useCallback( async () => {
+    const initializeFCM = useCallback(async () => {
         try {
             const permission = await Notification.requestPermission();
             setPermissionStatus(permission);
@@ -34,11 +34,10 @@ const useFCM = () => {
         }
     }, []);
 
-    const listenForegroundMessages = useCallback ((callback) => {
-        const unsubscribe = onMessage(messaging, (payload) => {
-            if(callback) callback(payload);
+    const listenForegroundMessages = useCallback((callback) => {
+        return onMessage(messaging, (payload) => {
+            if (callback) callback(payload);
         });
-        return unsubscribe;
     }, []);
 
     const removeFCMToken = useCallback (async () => {
