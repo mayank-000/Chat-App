@@ -41,6 +41,13 @@ const ChatPage = () => {
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  // Ref so the socket handler always reads the latest selectedConversation
+  // without needing it in the dependency array (which would re-register
+  // all socket listeners on every conversation switch).
+  const selectedConversationRef = useRef(selectedConversation);
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
 
   // Detect mobile viewport changes (rotation, resize)
   useEffect(() => {
@@ -134,7 +141,7 @@ const ChatPage = () => {
       // If the conversation is currently open and it's not our own message,
       // immediately emit read so the sender gets a double-tick right away
       if (
-        selectedConversation?._id === message.conversationId &&
+        selectedConversationRef.current?._id === message.conversationId &&
         message.sender._id !== user.id
       ) {
         markAsRead(message._id, message.conversationId);
@@ -187,7 +194,7 @@ const ChatPage = () => {
       socket.off("typing:hide");
       socket.off("message:read:update");
     };
-  }, [socket, userPrivateKey, decryptMessageContent]);
+  }, [socket, userPrivateKey, decryptMessageContent, markAsRead, user.id]);
 
   // Auto-scroll to bottom
   useEffect(() => {
