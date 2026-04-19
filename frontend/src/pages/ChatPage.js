@@ -15,6 +15,8 @@ const ChatPage = () => {
     sendMessage,
     sendTyping,
     stopTyping,
+    markAsRead,
+    onlineUsers,
     socket,
   } = useSocket();
 
@@ -31,127 +33,130 @@ const ChatPage = () => {
   const [decryptedMessages, setDecryptedMessages] = useState({});
   const [color, setColor] = useState("light");
 
+  // ── Mobile panel state ──────────────────────────────────────────
+  // On mobile we show either the sidebar OR the chat, not both.
+  // isMobile tracks window width; chatOpen controls which panel is visible.
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
+  const [chatOpen, setChatOpen] = useState(false);
+
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // listning notification
+  // Detect mobile viewport changes (rotation, resize)
   useEffect(() => {
-      const unsubscribe = listenForegroundMessages((payload) => {
-      console.log('Foreground notification received', payload);
-      // Showing notification or updating the ui
-      if(Notification.permission === 'granted' && document.visibilityState === 'hidden') {
-        new Notification(payload.notification?.title || 'New Message', {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 640);
+      if (window.innerWidth > 640) {
+        // Desktop: always show both panels, reset mobile state
+        setChatOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Listen for foreground FCM notifications
+  useEffect(() => {
+    const unsubscribe = listenForegroundMessages((payload) => {
+      console.log("Foreground notification received", payload);
+      if (Notification.permission === "granted" && document.visibilityState === "hidden") {
+        new Notification(payload.notification?.title || "New Message", {
           body: payload.notification?.body,
-          icon: '/logo192.png',
-          data: payload.data
+          icon: "/logo192.png",
+          data: payload.data,
         });
       }
     });
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    return () => { if (unsubscribe) unsubscribe(); };
   }, [listenForegroundMessages]);
 
   // Memoize decrypt function
   const decryptMessageContent = useCallback(async (message) => {
     try {
-      if(!userPrivateKey) {
-        return "[Encrypted - Key not available]";
-      }
+      if (!userPrivateKey) return "[Encrypted - Key not available]";
 
       let encryptedData;
       try {
         encryptedData = JSON.parse(message.content);
       } catch (e) {
         try {
-          const decrypted = await decryptMessage(message.content, userPrivateKey);
-          return decrypted;
-        } catch (err) {
+          return await decryptMessage(message.content, userPrivateKey);
+        } catch {
           return "[Failed to decrypt - old format]";
         }
       }
-      
-      let encryptedContent;
-      if (message.sender._id === user.id) {
-        encryptedContent = encryptedData.forSender;
-      } else {
-        encryptedContent = encryptedData.forReceiver;
-      }
 
-      const decrypted= await decryptMessage(encryptedContent, userPrivateKey);
-      return decrypted;
+      const encryptedContent =
+        message.sender._id === user.id
+          ? encryptedData.forSender
+          : encryptedData.forReceiver;
+
+      return await decryptMessage(encryptedContent, userPrivateKey);
     } catch (error) {
       console.error("Decryption failed for message:", message._id, error);
       return "[Failed to decrypt]";
     }
   }, [userPrivateKey, user.id]);
-  
+
+  // Load theme + initial data
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") || "light";
-    if (savedTheme) {
-      setColor(savedTheme);
-    }
+    setColor(savedTheme);
     loadConversations();
     loadAllUsers();
   }, []);
 
+  // Decrypt all messages whenever the messages array changes
   useEffect(() => {
-    const decryptAllMessages = async () => {
+    const decryptAll = async () => {
       if (!userPrivateKey || messages.length === 0) return;
-
       const decrypted = {};
       for (const message of messages) {
         try {
           decrypted[message._id] = await decryptMessageContent(message);
-        } catch (err) {
-          console.error("Failed to decrypt message:", err);
+        } catch {
           decrypted[message._id] = "[Failed to decrypt]";
         }
       }
       setDecryptedMessages(decrypted);
     };
+    decryptAll();
+  }, [messages, userPrivateKey, decryptMessageContent]);
 
-    decryptAllMessages();
-  }, [messages, userPrivateKey, user.id, decryptMessageContent]);
-
-  // Setup socket listeners
+  // ── Socket listeners ──────────────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
     const handleMessageReceive = async (message) => {
-      console.log("Message received:", message);
       setMessages((prev) => [...prev, message]);
+      loadConversations();
+
+      // If the conversation is currently open and it's not our own message,
+      // immediately emit read so the sender gets a double-tick right away
+      if (
+        selectedConversation?._id === message.conversationId &&
+        message.sender._id !== user.id
+      ) {
+        markAsRead(message._id, message.conversationId);
+      }
 
       if (userPrivateKey) {
         try {
           const decrypted = await decryptMessageContent(message);
-          setDecryptedMessages((prev) => ({
-            ...prev,
-            [message._id]: decrypted,
-          }));
-        } catch (err) {
-          console.error("Failed to decrypt incoming message:", err);
-          setDecryptedMessages((prev) => ({
-            ...prev,
-            [message._id]: "[Failed to decrypt]",
-          }));
+          setDecryptedMessages((prev) => ({ ...prev, [message._id]: decrypted }));
+        } catch {
+          setDecryptedMessages((prev) => ({ ...prev, [message._id]: "[Failed to decrypt]" }));
         }
       }
-      if(document.visibilityState === 'hidden' && Notification.permission === 'granted') {
-        console.log("Document is hidden, showing notification");
-        new Notification('New Message Received', {
-          body: `${message.sender.username}: [Encrypted Message]`,
-          icon: '/logo192.png'
-        })
-      }
+
+      // Note: push notifications when the tab is hidden are handled by
+      // the FCM foreground listener in the listenForegroundMessages effect.
+      // Do NOT add another new Notification() call here — it would fire twice.
     };
 
     socket.on("message:receive", handleMessageReceive);
     socket.on("typing:display", (data) => {
-      setTypingUsers((prev) => ({
-        ...prev,
-        [data.conversationId]: data.username,
-      }));
+      setTypingUsers((prev) => ({ ...prev, [data.conversationId]: data.username }));
     });
     socket.on("typing:hide", (data) => {
       setTypingUsers((prev) => {
@@ -161,14 +166,30 @@ const ChatPage = () => {
       });
     });
 
+    // Read receipts — when the other person reads our message, update readBy
+    socket.on("message:read:update", ({ messageId, userId, readAt }) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg._id !== messageId) return msg;
+          const alreadyRead = msg.readBy?.some((r) => r.userId === userId);
+          if (alreadyRead) return msg;
+          return {
+            ...msg,
+            readBy: [...(msg.readBy || []), { userId, readAt }],
+          };
+        })
+      );
+    });
+
     return () => {
       socket.off("message:receive", handleMessageReceive);
       socket.off("typing:display");
       socket.off("typing:hide");
+      socket.off("message:read:update");
     };
   }, [socket, userPrivateKey, decryptMessageContent]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -176,18 +197,14 @@ const ChatPage = () => {
   // Join/leave conversation rooms
   useEffect(() => {
     if (selectedConversation) {
-      console.log("Joining conversation:", selectedConversation._id);
       joinConversation(selectedConversation._id);
       loadMessages(selectedConversation._id);
-
-      return () => {
-        console.log("Leaving conversation:", selectedConversation._id);
-        leaveConversation(selectedConversation._id);
-      };
+      return () => { leaveConversation(selectedConversation._id); };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConversation]);
 
+  // ── Data loaders ───────────────────────────────────────────────────
   const loadConversations = async () => {
     try {
       const response = await chatService.getConversations();
@@ -212,6 +229,15 @@ const ChatPage = () => {
       setLoading(true);
       const response = await chatService.getMessages(conversationId);
       setMessages(response.messages);
+
+      // Mark the last received message as read so the sender gets a tick
+      const msgs = response.messages;
+      const lastReceived = [...msgs].reverse().find(
+        (m) => m.sender._id !== user.id
+      );
+      if (lastReceived) {
+        markAsRead(lastReceived._id, conversationId);
+      }
     } catch (error) {
       console.error("Failed to load messages:", error);
       setMessages([]);
@@ -220,38 +246,27 @@ const ChatPage = () => {
     }
   };
 
+  // ── Actions ────────────────────────────────────────────────────────
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!messageInput.trim() || !selectedConversation) return;
 
     try {
-      // Get recipient from conversation
       const recipient = getOtherParticipant(selectedConversation);
 
-      if (!recipient || !recipient.publicKey) {
+      if (!recipient?.publicKey) {
         alert("Cannot send encrypted message: Recipient has no encryption key");
         return;
       }
-
       if (!userPrivateKey) {
         alert("Cannot send encrypted message: Your private key is missing");
         return;
       }
 
       const plainMessage = messageInput.trim();
+      const encryptedForReceiver = await encryptMessage(plainMessage, recipient.publicKey);
+      const encryptedForSender = await encryptMessage(plainMessage, user.publicKey);
 
-      // Encrypt message with recipient's public key
-      const encryptedForReceiver = await encryptMessage(
-        plainMessage,
-        recipient.publicKey
-      );
-
-      const encryptedForSender = await encryptMessage(
-        plainMessage,
-        user.publicKey
-      );
-
-      // Store both versions as JSON
       const dualEncrypted = JSON.stringify({
         forReceiver: encryptedForReceiver,
         forSender: encryptedForSender,
@@ -259,17 +274,14 @@ const ChatPage = () => {
         recipientId: recipient._id,
       });
 
-      const messageData = {
-        conversationId: selectedConversation._id,
-        content: dualEncrypted,
-        messageType: "text",
-      };
-
-      console.log("Sending dual-encrypted message:", messageData);
-      sendMessage(messageData);
-
+      sendMessage({ conversationId: selectedConversation._id, content: dualEncrypted, messageType: "text" });
       setMessageInput("");
       stopTyping(selectedConversation._id);
+
+      // ── Cache invalidation: optimistically refresh conversations list
+      // so the sidebar order updates right after sending without waiting
+      // for the socket echo to come back.
+      setTimeout(loadConversations, 300);
     } catch (error) {
       console.error("Encryption failed:", error);
       alert("Failed to encrypt message. Please try again.");
@@ -278,14 +290,11 @@ const ChatPage = () => {
 
   const handleTyping = (e) => {
     setMessageInput(e.target.value);
-
     if (!selectedConversation) return;
-
     if (!isTyping) {
       setIsTyping(true);
       sendTyping(selectedConversation._id, user.username);
     }
-
     clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
@@ -296,14 +305,14 @@ const ChatPage = () => {
   const handleSearch = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-
     if (query.trim().length > 0) {
-      const filtered = allUsers.filter(
-        (u) =>
-          u.username.toLowerCase().includes(query.toLowerCase()) ||
-          u.email.toLowerCase().includes(query.toLowerCase())
+      setFilteredUsers(
+        allUsers.filter(
+          (u) =>
+            u.username.toLowerCase().includes(query.toLowerCase()) ||
+            u.email.toLowerCase().includes(query.toLowerCase())
+        )
       );
-      setFilteredUsers(filtered);
     } else {
       setFilteredUsers(allUsers);
     }
@@ -311,33 +320,53 @@ const ChatPage = () => {
 
   const handleStartChat = async (participantId) => {
     try {
-      console.log("Starting chat with user:", participantId);
       const response = await chatService.createConversation(participantId);
       const newConversation = response.conversation;
 
-      console.log("Conversation created/retrieved:", newConversation);
-
-      // Add to conversations list if not already there
       setConversations((prev) => {
         const exists = prev.find((c) => c._id === newConversation._id);
-        if (exists) {
-          return prev;
-        }
-        return [newConversation, ...prev];
+        return exists ? prev : [newConversation, ...prev];
       });
 
-      // Set as selected conversation
       setSelectedConversation(newConversation);
       setSearchQuery("");
-      setFilteredUsers(allUsers); // Reset filter
+      setFilteredUsers(allUsers);
+
+      // On mobile: switch to chat panel
+      if (isMobile) setChatOpen(true);
     } catch (error) {
       console.error("Failed to create conversation:", error);
       alert("Failed to start conversation. Please try again.");
     }
   };
 
+  // Select a recent conversation from sidebar
+  const handleSelectConversation = (conversation) => {
+    setSelectedConversation(conversation);
+    if (isMobile) setChatOpen(true);
+  };
+
+  // Mobile back button — return to sidebar
+  const handleBackToSidebar = () => {
+    setChatOpen(false);
+    setSelectedConversation(null);
+  };
+
+  const deleteMessage = async (messageId) => {
+    try {
+      const response = await chatService.deleteMessage(messageId);
+      if (response.success) {
+        setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+        // ── Cache invalidation: after deleting, conversation preview may change
+        loadConversations();
+      }
+    } catch (error) {
+      console.error("Failed to delete message:", error);
+    }
+  };
+
   const getOtherParticipant = (conversation) => {
-    if (!conversation || !conversation.participants) return null;
+    if (!conversation?.participants) return null;
     return conversation.participants.find((p) => p._id !== user.id);
   };
 
@@ -348,17 +377,11 @@ const ChatPage = () => {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (messageDate.toDateString() === today.toDateString()) {
-      return messageDate.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      return messageDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
     } else if (messageDate.toDateString() === yesterday.toDateString()) {
       return "Yesterday";
     } else {
-      return messageDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-      });
+      return messageDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
   };
 
@@ -367,25 +390,35 @@ const ChatPage = () => {
     localStorage.setItem("theme", Theme);
   };
 
-  const deleteMessage = async (messageId) => {
-    try {
-      const response = await chatService.deleteMessage(messageId);
-      if (response.success) {
-        setMessages((prevMessages) =>
-          prevMessages.filter((msg) => msg._id !== messageId)
-        );
-      }
-    } catch (error) {
-      console.error("Failed to delete message:", error);
-    }
+  // Returns true if a given userId is currently online
+  const isUserOnline = (userId) => {
+    return onlineUsers[userId]?.isOnline === true;
   };
 
+  // For sent messages: returns 'read', 'delivered', or 'sent'
+  // 'read'      — recipient has a readBy entry
+  // 'sent'      — just the single tick (no readBy yet)
+  const getMessageStatus = (message) => {
+    if (message.sender._id !== user.id) return null; // only show for own messages
+    const recipient = getOtherParticipant(selectedConversation);
+    if (!recipient) return "sent";
+    const readByRecipient = message.readBy?.some(
+      (r) => r.userId === recipient._id || r.userId?._id === recipient._id
+    );
+    return readByRecipient ? "read" : "sent";
+  };
+
+  // ── Derive CSS classes for mobile panel switching ──────────────────
+  // On mobile:  sidebar gets "hidden" when chat is open, chat gets "active"
+  // On desktop: neither class is applied — normal flex layout takes over.
+  const sidebarClass = `sidebar${isMobile && chatOpen ? " hidden" : ""}`;
+  const chatAreaClass = `chat-area${isMobile && chatOpen ? " active" : ""}`;
+
   return (
-    <div
-      className={`chat-page ${color === "dark" ? "dark-theme" : "light-theme"}`}
-    >
-      {/* Sidebar */}
-      <div className="sidebar">
+    <div className={`chat-page ${color === "dark" ? "dark-theme" : "light-theme"}`}>
+
+      {/* ── Sidebar ───────────────────────────────────────────────── */}
+      <div className={sidebarClass}>
         <div className="sidebar-header">
           <div className="user-info">
             <div className="user-avatar">
@@ -420,7 +453,7 @@ const ChatPage = () => {
           />
         </div>
 
-        {/* All Users List */}
+        {/* All Users */}
         <div className="users-list">
           <h4 className="section-title">All Users</h4>
           {filteredUsers.length > 0 ? (
@@ -432,6 +465,7 @@ const ChatPage = () => {
               >
                 <div className="user-avatar small">
                   {otherUser.username.charAt(0).toUpperCase()}
+                  {isUserOnline(otherUser._id) && <span className="online-dot" />}
                 </div>
                 <div className="user-item-info">
                   <h4>{otherUser.username}</h4>
@@ -444,7 +478,7 @@ const ChatPage = () => {
           )}
         </div>
 
-        {/* Conversations List */}
+        {/* Recent Conversations */}
         {conversations.length > 0 && (
           <>
             <h4 className="section-title">Recent Chats</h4>
@@ -452,19 +486,15 @@ const ChatPage = () => {
               {conversations.map((conversation) => {
                 const otherUser = getOtherParticipant(conversation);
                 if (!otherUser) return null;
-
                 return (
                   <div
                     key={conversation._id}
-                    className={`conversation-item ${
-                      selectedConversation?._id === conversation._id
-                        ? "active"
-                        : ""
-                    }`}
-                    onClick={() => setSelectedConversation(conversation)}
+                    className={`conversation-item ${selectedConversation?._id === conversation._id ? "active" : ""}`}
+                    onClick={() => handleSelectConversation(conversation)}
                   >
                     <div className="user-avatar">
                       {otherUser.username.charAt(0).toUpperCase()}
+                      {isUserOnline(otherUser._id) && <span className="online-dot" />}
                     </div>
                     <div className="conversation-info">
                       <h4>{otherUser.username}</h4>
@@ -477,19 +507,27 @@ const ChatPage = () => {
         )}
       </div>
 
-      {/* Chat Area */}
-      <div className="chat-area">
+      {/* ── Chat Area ─────────────────────────────────────────────── */}
+      <div className={chatAreaClass}>
         {selectedConversation ? (
           <>
             <div className="chat-header">
               <div className="chat-user-info">
+                {/* Back button shown only on mobile */}
+                <button className="back-btn" onClick={handleBackToSidebar} title="Back">
+                  ‹
+                </button>
                 <div className="user-avatar">
-                  {getOtherParticipant(selectedConversation)
-                    ?.username.charAt(0)
-                    .toUpperCase()}
+                  {getOtherParticipant(selectedConversation)?.username.charAt(0).toUpperCase()}
+                  {isUserOnline(getOtherParticipant(selectedConversation)?._id) && (
+                    <span className="online-dot" />
+                  )}
                 </div>
                 <div>
                   <h3>{getOtherParticipant(selectedConversation)?.username}</h3>
+                  <span className={`status ${isUserOnline(getOtherParticipant(selectedConversation)?._id) ? "online" : "offline"}`}>
+                    {isUserOnline(getOtherParticipant(selectedConversation)?._id) ? "Online" : "Offline"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -501,7 +539,6 @@ const ChatPage = () => {
                 <>
                   {messages.length === 0 ? (
                     <div
-                      className="no-messages"
                       style={{
                         display: "flex",
                         justifyContent: "center",
@@ -517,28 +554,26 @@ const ChatPage = () => {
                     messages.map((message) => (
                       <div
                         key={message._id}
-                        className={`message ${
-                          message.sender._id === user.id ? "sent" : "received"
-                        }`}
+                        className={`message ${message.sender._id === user.id ? "sent" : "received"}`}
                       >
                         <div className="message-content">
                           {message.sender._id !== user.id && (
-                            <span className="sender-name">
-                              {message.sender.username}
-                            </span>
+                            <span className="sender-name">{message.sender.username}</span>
                           )}
                           <p>
-                            {message.sender._id === user.id
-                              ? decryptedMessages[message._id] ||
-                                "Decrypting your message..."
-                              : decryptedMessages[message._id] ||
-                                "Decrypting..."}
+                            {decryptedMessages[message._id] ||
+                              (message.sender._id === user.id
+                                ? "Decrypting your message..."
+                                : "Decrypting...")}
                           </p>
                           <div className="message-box">
                             <div className="message-actions">
-                              <span className="message-time">
-                                {formatTime(message.createdAt)}
-                              </span>
+                              <span className="message-time">{formatTime(message.createdAt)}</span>
+                              {message.sender._id === user.id && (
+                                <span className={`read-tick ${getMessageStatus(message)}`}>
+                                  {getMessageStatus(message) === "read" ? "✓✓" : "✓"}
+                                </span>
+                              )}
                             </div>
                             {message.sender._id === user.id && (
                               <button
@@ -564,10 +599,7 @@ const ChatPage = () => {
               )}
             </div>
 
-            <form
-              onSubmit={handleSendMessage}
-              className="message-input-container"
-            >
+            <form onSubmit={handleSendMessage} className="message-input-container">
               <input
                 type="text"
                 value={messageInput}
@@ -575,11 +607,7 @@ const ChatPage = () => {
                 placeholder="Type a message..."
                 className="message-input"
               />
-              <button
-                type="submit"
-                className="send-btn"
-                disabled={!messageInput.trim()}
-              >
+              <button type="submit" className="send-btn" disabled={!messageInput.trim()}>
                 Send
               </button>
             </form>
@@ -587,7 +615,7 @@ const ChatPage = () => {
         ) : (
           <div className="no-chat-selected">
             <h2>Welcome to Chat App</h2>
-            <p>Click on any user to start chatting</p>
+            <p>Select a user to start chatting</p>
           </div>
         )}
       </div>
